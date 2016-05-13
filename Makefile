@@ -1,4 +1,4 @@
-BINARIES = test_csv_reader
+BINARIES = test_pgstring_convert #test_csv_reader
 OBJECTS = 
 
 BOOST_ROOT = /usr/local/boost_1_56_0
@@ -20,6 +20,9 @@ DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.Td
 POSTCOMPILE = @mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d
 
 all : $(BINARIES)
+
+test_pgstring_convert : $(addprefix $(BUILDDIR)/, test_pgstring_convert.o $(OBJECTS))
+	$(CXX) $(LDFLAGS) $^ -o $@
 
 test_csv_reader : $(addprefix $(BUILDDIR)/, test_csv_reader.o $(OBJECTS))
 	$(CXX) $(LDFLAGS) $^ -o $@
