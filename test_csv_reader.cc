@@ -35,6 +35,16 @@ int main(){
   cout << csv["mclund"] << endl;
   csv.close();
 
+  cout << endl;
+  cout << "break " << endl;
+  cout << endl;
+  
+  csv.open("testing.csv");
+  int n_records = 0;
+  while (csv.next()) { ++n_records; }
+  cout << "number of records: " << n_records << endl; 
+  csv.close();
+
   return 0;
 }
 

@@ -34,11 +34,10 @@ void CsvReader<TokenizerFunction>::close() {
 template <typename TokenizerFunction>
 bool CsvReader<TokenizerFunction>::next() {
 
-  // return false if the file is still usable
-  if (!fin_.good()) { return false; }
+  // read the next line 
+  if (!getline(fin_, line_)) { return false; }
 
-  // read the next line and construct the tokenizer 
-  getline(fin_, line_);
+  // construct tokenizer
   TokenIterator beg = 
     boost::make_token_iterator<std::string>(line_.begin(), line_.end(), sep_);
   TokenIterator end;
