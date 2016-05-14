@@ -1,4 +1,4 @@
-BINARIES = test_pgstring_convert #test_csv_reader
+BINARIES = test_graph #test_graph_reader
 OBJECTS = 
 
 BOOST_ROOT = /usr/local/boost_1_56_0
@@ -9,7 +9,7 @@ INCFLAGS = -I$(BOOST_ROOT)
 LDFLAGS = -L$(BOOST_LIBS) -Wl,-rpath,$(BOOST_LIBS) $(LIBS)
 
 CXX := g++
-CXXFLAGS = -Wall -Werror -pedantic -pthread -std=c++11 -O2
+CXXFLAGS = -Wall -pthread -std=c++11 -O2
 
 SRCS = $(wildcard *.cc)
 BUILDDIR = build
@@ -39,7 +39,7 @@ $(DEPDIR)/%.d: ;
 -include $(patsubst %,$(DEPDIR)/%.d,$(basename $(SRCS)))
 
 clean : 
-	@rm -f *~ $(BINARIES) $(BUILDDIR)/*
+	@rm -f *~ $(BINARIES) $(BUILDDIR)/* *.pdf *.gif *.png *.gv *.ps
 
 cleanall : clean
 	@rm -f $(DEPDIR)/*
