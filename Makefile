@@ -1,4 +1,4 @@
-BINARIES = test_graph #test_graph_reader
+BINARIES = test_recograph #test_graph_reader
 OBJECTS = 
 
 BOOST_ROOT = /usr/local/boost_1_56_0
