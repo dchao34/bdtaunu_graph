@@ -12,6 +12,7 @@
 
 #include <boost/tokenizer.hpp>
 
+// class that reads the contents of a csv file. 
 template <typename TokenizerFunction=boost::escaped_list_separator<char>>
 class CsvReader {
 

@@ -3,6 +3,10 @@
 #include <algorithm>
 #include <boost/tokenizer.hpp>
 
+// functions that convert text data read from postgres into 
+// the binary type. 
+
+// helper trait class and specializations
 template <typename T>
 class pgstring_conversion_traits;
 
@@ -25,11 +29,12 @@ class pgstring_conversion_traits<double> {
 };
 
 
-
+// functions that convert to fundamental types 
 inline void pgstring_convert(const std::string &s, int &v) { v = std::stoi(s); }
 inline void pgstring_convert(const std::string &s, float &v) { v = std::stof(s); }
 inline void pgstring_convert(const std::string &s, double &v) { v = std::stod(s); }
 
+// functions that convert array strings to std::vector's. 
 template <typename T> 
 void pgstring_convert(
     const std::string &s, std::vector<T> &v, 

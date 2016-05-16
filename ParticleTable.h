@@ -6,6 +6,7 @@
 #include <string>
 #include <boost/bimap.hpp>
 
+// class that maps particle lund id <=> particle name
 class ParticleTable {
 
   private:
@@ -14,6 +15,9 @@ class ParticleTable {
     using right_type = bm_type::right_map;
 
   public:
+
+    // construct the table using the particle data file. 
+    // this is usually named `pdt.dat`. 
     ParticleTable(const std::string &fname) 
       : table_(), name2id_(table_.left), id2name_(table_.right) {
 
@@ -24,7 +28,10 @@ class ParticleTable {
       }
     }
 
+    // get particle lund id from its name.
     int get(const std::string &name) const { return name2id_.at(name); }
+
+    // get particle name id from its lundid.
     std::string get(int id) const { return id2name_.at(id); }
 
   private:

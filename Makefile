@@ -1,4 +1,4 @@
-BINARIES = test_recograph read_mcgraph extract_mcgraph
+BINARIES = extract_mcgraph extract_recograph #read_mcgraph 
 OBJECTS = PsqlReader.o
 
 BOOST_ROOT = /usr/local/boost_1_56_0
@@ -26,7 +26,7 @@ POSTCOMPILE = @mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d
 
 all : $(BINARIES)
 
-test_recograph : $(addprefix $(BUILDDIR)/, test_recograph.o $(OBJECTS))
+extract_recograph : $(addprefix $(BUILDDIR)/, extract_recograph.o $(OBJECTS))
 	$(CXX) $(LDFLAGS) $^ -o $@
 	
 read_mcgraph : $(addprefix $(BUILDDIR)/, read_mcgraph.o $(OBJECTS))
@@ -47,7 +47,7 @@ $(DEPDIR)/%.d: ;
 -include $(patsubst %,$(DEPDIR)/%.d,$(basename $(SRCS)))
 
 clean : 
-	@rm -f *~ $(BINARIES) $(BUILDDIR)/* *.pdf *.gif *.png *.gv *.ps
+	@rm -f *~ $(BINARIES) $(BUILDDIR)/* *.pdf *.gif *.png *.gv *.ps *.csv
 
 cleanall : clean
 	@rm -f $(DEPDIR)/*
