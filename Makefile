@@ -1,4 +1,4 @@
-BINARIES = test_psqlreader
+BINARIES = read_mcgraph extract_mcgraph
 OBJECTS = PsqlReader.o
 
 BOOST_ROOT = /usr/local/boost_1_56_0
@@ -25,11 +25,11 @@ DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.Td
 POSTCOMPILE = @mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d
 
 all : $(BINARIES)
-
-test_pq : $(addprefix $(BUILDDIR)/, test_pq.o $(OBJECTS))
+	
+read_mcgraph : $(addprefix $(BUILDDIR)/, read_mcgraph.o $(OBJECTS))
 	$(CXX) $(LDFLAGS) $^ -o $@
-
-test_psqlreader : $(addprefix $(BUILDDIR)/, test_psqlreader.o $(OBJECTS))
+	
+extract_mcgraph : $(addprefix $(BUILDDIR)/, extract_mcgraph.o $(OBJECTS))
 	$(CXX) $(LDFLAGS) $^ -o $@
 
 $(BUILDDIR)/%.o : %.cc
