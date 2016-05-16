@@ -1,4 +1,4 @@
-BINARIES = read_mcgraph extract_mcgraph
+BINARIES = test_recograph read_mcgraph extract_mcgraph
 OBJECTS = PsqlReader.o
 
 BOOST_ROOT = /usr/local/boost_1_56_0
@@ -14,7 +14,7 @@ LDFLAGS = -L$(BOOST_LIBS) -L$(LIBPQ_LIBS) \
 					-Wl,-rpath,$(BOOST_LIBS) -lpq
 
 CXX := g++
-CXXFLAGS = -Wall -pthread -std=c++11 -O2
+CXXFLAGS = -Wall -pthread -std=c++11 -O2 -Wno-unused-local-typedef -Wno-redeclared-class-member
 
 SRCS = $(wildcard *.cc)
 BUILDDIR = build
@@ -25,6 +25,9 @@ DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.Td
 POSTCOMPILE = @mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d
 
 all : $(BINARIES)
+
+test_recograph : $(addprefix $(BUILDDIR)/, test_recograph.o $(OBJECTS))
+	$(CXX) $(LDFLAGS) $^ -o $@
 	
 read_mcgraph : $(addprefix $(BUILDDIR)/, read_mcgraph.o $(OBJECTS))
 	$(CXX) $(LDFLAGS) $^ -o $@

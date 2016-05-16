@@ -37,12 +37,15 @@ void pgstring_convert(
     const boost::char_separator<char> &sep = 
     boost::char_separator<char>(",", "", boost::keep_empty_tokens)) {
 
-  boost::tokenizer<boost::char_separator<char>> tok(
-      s.begin()+s.find_first_not_of(enclosure_chars),
-      s.begin()+s.find_last_not_of(enclosure_chars)+1,
-      sep);
-
   v.clear();
+
+  size_t first_idx = s.find_first_not_of(enclosure_chars);
+  size_t last_idx = s.find_last_not_of(enclosure_chars);
+  if (first_idx == std::string::npos || last_idx == std::string::npos) { return; }
+
+  boost::tokenizer<boost::char_separator<char>> tok(
+      s.begin()+first_idx, s.begin()+last_idx+1, sep);
+
   transform(tok.begin(), tok.end(), 
             std::back_inserter(v), 
             pgstring_conversion_traits<T>::convert);

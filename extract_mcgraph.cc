@@ -28,11 +28,11 @@ int main() {
   psql.open_connection("dbname=testing");
   psql.open_cursor(
       "framework_ntuples", 
-      { "eid", "mclen", "daulen", "dauidx" }, 5000);
+      { "eid", "mclen", "daulen", "dauidx", "mclund" }, 5000);
 
   // open output file and write title line
   std::ofstream fout; fout.open("mcgraph_adjacency.csv");
-  fout << "eid,n_vertices,n_edges,from,to" << std::endl;
+  fout << "eid,n_vertices,n_edges,from,to,lund_id" << std::endl;
 
   int eid;
   int mclen;
@@ -47,6 +47,7 @@ int main() {
     pgstring_convert(psql.get("mclen"), mclen);
     pgstring_convert(psql.get("daulen"), daulen);
     pgstring_convert(psql.get("dauidx"), dauidx);
+    pgstring_convert(psql.get("mclund"), mclund);
 
     n_vertices = mclen;
 
@@ -65,7 +66,8 @@ int main() {
     fout << n_vertices << ",";
     fout << n_edges << ",";
     fout << vector2pgstring(from_vertices) << ",";
-    fout << vector2pgstring(to_vertices);
+    fout << vector2pgstring(to_vertices) << ",";
+    fout << vector2pgstring(mclund);
     fout << std::endl;
 
   }

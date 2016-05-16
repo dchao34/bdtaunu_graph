@@ -24,8 +24,8 @@ class ParticleTable {
       }
     }
 
-    int get(const std::string &name) { return name2id_.at(name); }
-    std::string get(int id) { return id2name_.at(id); }
+    int get(const std::string &name) const { return name2id_.at(name); }
+    std::string get(int id) const { return id2name_.at(id); }
 
   private:
     bm_type table_;
