@@ -6,20 +6,6 @@
 #include "pgstring_convert.h"
 #include "PsqlReader.h"
 
-std::string vector2pgstring(const std::vector<int> &v) {
-
-  if (v.empty()) { return "{}"; }
-
-  std::string s = "\"{";
-
-  for (const auto &e : v) {
-    s += std::to_string(e) + ",";
-  }
-
-  s.pop_back(); s += "}\"";
-  return s;
-}
-
 int main() {
 
   

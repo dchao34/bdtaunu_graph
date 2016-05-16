@@ -1,10 +1,13 @@
+#ifndef _PGSTRING_CONVERT_H_
+#define _PGSTRING_CONVERT_H_
+
 #include <string>
 #include <vector>
 #include <algorithm>
 #include <boost/tokenizer.hpp>
 
-// functions that convert text data read from postgres into 
-// the binary type. 
+// functions that convert between postgres text data 
+// and the binary type. 
 
 // helper trait class and specializations
 template <typename T>
@@ -29,12 +32,12 @@ class pgstring_conversion_traits<double> {
 };
 
 
-// functions that convert to fundamental types 
+// functions that convert postgres text data to fundamental types 
 inline void pgstring_convert(const std::string &s, int &v) { v = std::stoi(s); }
 inline void pgstring_convert(const std::string &s, float &v) { v = std::stof(s); }
 inline void pgstring_convert(const std::string &s, double &v) { v = std::stod(s); }
 
-// functions that convert array strings to std::vector's. 
+// function that convert postgres text data to std::vector
 template <typename T> 
 void pgstring_convert(
     const std::string &s, std::vector<T> &v, 
@@ -56,3 +59,21 @@ void pgstring_convert(
             pgstring_conversion_traits<T>::convert);
 }
 
+// function that converts std::vector to postgres text data. 
+// NOTE: uses std::to_string(); this may not be what you want for float types. 
+template <typename T> 
+std::string vector2pgstring(const std::vector<T> &v) {
+
+  if (v.empty()) { return "{}"; }
+
+  std::string s = "\"{";
+
+  for (const auto &e : v) {
+    s += std::to_string(e) + ",";
+  }
+
+  s.pop_back(); s += "}\"";
+  return s;
+}
+
+#endif
