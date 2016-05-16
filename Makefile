@@ -1,12 +1,17 @@
-BINARIES = test_particle_dictionary test_recograph #test_graph_reader
-OBJECTS = 
+BINARIES = test_psqlreader
+OBJECTS = PsqlReader.o
 
 BOOST_ROOT = /usr/local/boost_1_56_0
 BOOST_LIBS = $(BOOST_ROOT)/stage/lib
-LIBS = -lboost_program_options
 
-INCFLAGS = -I$(BOOST_ROOT)
-LDFLAGS = -L$(BOOST_LIBS) -Wl,-rpath,$(BOOST_LIBS) $(LIBS)
+LIBPQ_ROOT = /usr/local/pgsql
+LIBPQ_INCS = $(LIBPQ_ROOT)/include
+LIBPQ_LIBS = $(LIBPQ_ROOT)/lib
+
+INCFLAGS = -I$(BOOST_ROOT) -I$(LIBPQ_INCS)
+LDFLAGS = -L$(BOOST_LIBS) -L$(LIBPQ_LIBS) \
+					-Wl,-rpath,$(BOOST_LIBS) -lboost_program_options \
+					-Wl,-rpath,$(BOOST_LIBS) -lpq
 
 CXX := g++
 CXXFLAGS = -Wall -pthread -std=c++11 -O2
@@ -21,10 +26,10 @@ POSTCOMPILE = @mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d
 
 all : $(BINARIES)
 
-test_pgstring_convert : $(addprefix $(BUILDDIR)/, test_pgstring_convert.o $(OBJECTS))
+test_pq : $(addprefix $(BUILDDIR)/, test_pq.o $(OBJECTS))
 	$(CXX) $(LDFLAGS) $^ -o $@
 
-test_csv_reader : $(addprefix $(BUILDDIR)/, test_csv_reader.o $(OBJECTS))
+test_psqlreader : $(addprefix $(BUILDDIR)/, test_psqlreader.o $(OBJECTS))
 	$(CXX) $(LDFLAGS) $^ -o $@
 
 $(BUILDDIR)/%.o : %.cc
