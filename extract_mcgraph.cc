@@ -18,7 +18,7 @@ int main() {
 
   // open output file and write title line
   std::ofstream fout; fout.open("mcgraph_adjacency.csv");
-  fout << "eid,n_vertices,n_edges,from,to,lund_id" << std::endl;
+  fout << "eid,n_vertices,n_edges,from_vertices,to_vertices,lund_id" << std::endl;
 
   int eid;
   int mclen;

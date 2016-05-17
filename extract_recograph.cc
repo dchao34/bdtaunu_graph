@@ -49,7 +49,7 @@ void add_edges(
 
 // output csv formatting functions
 void write_title_line(std::ostream &os) {
-  os << "eid,n_vertices,n_edges,from,to,lund_id,"
+  os << "eid,n_vertices,n_edges,from_vertices,to_vertices,lund_id,"
         "y_reco_idx,b_reco_idx,d_reco_idx,c_reco_idx,"
         "h_reco_idx,l_reco_idx,gamma_reco_idx";
   os << std::endl;

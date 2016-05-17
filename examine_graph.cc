@@ -46,7 +46,7 @@ private:
 void print_usage(std::ostream &os) {
   os << "usage: ./examine_graph adjacency_fname.csv record_index" << std::endl;
   os << "adjacency_fname: first line is the title. requires these fields: ";
-  os << "n_vertices,n_edges,from,to,lund_id " << std::endl;
+  os << "n_vertices,n_edges,from_vertices,to_vertices,lund_id " << std::endl;
   os << "record_index: range from 0 to the total number of records. " << std::endl;
 }
 
@@ -75,8 +75,8 @@ int main(int argc, char **argv) {
   vector<int> from, to, lund_id;
   pgstring_convert(csv["n_vertices"], n_vertices);
   pgstring_convert(csv["n_edges"], n_edges);
-  pgstring_convert(csv["from"], from);
-  pgstring_convert(csv["to"], to);
+  pgstring_convert(csv["from_vertices"], from);
+  pgstring_convert(csv["to_vertices"], to);
   pgstring_convert(csv["lund_id"], lund_id);
 
   // define graph type
