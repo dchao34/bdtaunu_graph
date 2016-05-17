@@ -43,13 +43,36 @@ private:
   ParticleTable pdt_;
 };
 
-int main() {
+void print_usage(std::ostream &os) {
+  os << "usage: ./examine_graph adjacency_fname.csv record_index" << std::endl;
+  os << "adjacency_fname: first line is the title. requires these fields: ";
+  os << "n_vertices,n_edges,from,to,lund_id " << std::endl;
+  os << "record_index: range from 0 to the total number of records. " << std::endl;
+}
+
+int main(int argc, char **argv) {
+
+  // read command line
+  if (argc < 2 || argc > 3) { print_usage(std::cerr); return 1; }
+
+  std::string fname(argv[1]);
+  size_t row_index = 0;
+  if (argc == 3) { row_index = stoull(argv[2]); }
 
   // read the csv file
+  CsvReader<> csv(fname); 
+  bool valid_record = true;
+  for (int i = 0; i <= row_index && (valid_record=csv.next()); ++i) ;
+
+  if (!valid_record) { 
+    std::cerr << "file does not contain at least ";
+    std::cerr << (row_index+1) << " record(s)... " << std::endl;
+    return 1;
+  }
+
+  // load the columns
   int n_vertices, n_edges;
   vector<int> from, to, lund_id;
-  CsvReader<> csv("recograph_adjacency.csv"); csv.next();
-  //CsvReader<> csv("mcgraph_adjacency.csv"); csv.next();
   pgstring_convert(csv["n_vertices"], n_vertices);
   pgstring_convert(csv["n_edges"], n_edges);
   pgstring_convert(csv["from"], from);
@@ -85,7 +108,7 @@ int main() {
   typedef property_map<Graph, int ParticleProperties::*>::type NameMap;
   NameMap index = get(&ParticleProperties::idx, g);
   NameMap lundmap = get(&ParticleProperties::lund_id, g);
-  boost::write_graphviz(std::cout, g, //make_label_writer(lundmap), 
+  boost::write_graphviz(std::cout, g, 
                         particle_writer<NameMap>(lundmap, "cache/pdt.dat"),
                         default_writer(), default_writer(), 
                         index);

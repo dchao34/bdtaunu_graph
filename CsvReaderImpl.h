@@ -4,7 +4,7 @@ void CsvReader<TokenizerFunction>::open(const std::string &fname) {
   // check if another file is already open.
   if (fin_.is_open()) {
     throw std::runtime_error(
-        "CsvReader<>::open() : file already open. " 
+        "CsvReader<>::open() : another file is already open. " 
         "run close() before running another open(). "
     );
   }
@@ -13,6 +13,11 @@ void CsvReader<TokenizerFunction>::open(const std::string &fname) {
 
   // open the file and read the title line
   fin_.open(fname);
+  if (!fin_.is_open()) {
+    throw std::runtime_error(
+      "CsvReader<>::open() : file " + fname + " does not exist. " 
+    );
+  }
   std::getline(fin_, line_);
 
   // assign column name indices and caches
