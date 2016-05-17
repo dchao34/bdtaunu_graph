@@ -5,6 +5,44 @@
 #include <vector>
 #include <unordered_map>
 
+// class that computes a global indexing of all reconstructed particles. 
+// 
+// example: 
+// 
+// block names {"a","b","c"} with current block size settings {10,5,3}.
+// the indexing scheme is then as follows:
+//
+// gidx:  0             9   10           14  15           17
+//       [...a indices...] [...b indices...][...c indices...]
+// lidx:  0             9   0             4  0             2
+//
+// gidx is the global index determined by this class, and lidx are the 
+// local indices of each element in its own block
+//
+// usage: 
+//
+// 1. construct objects of this class using a set of block names and their 
+//    maximum block sizes. 
+//
+//    RecoIndexer reco_indexer({"a","b","c"}, {300,200,100});
+//
+// 2. input a setting of the current block sizes:
+//   
+//    reco_indexer.set_block_sizes({10,5,3});
+//
+// 3. given a set of block size settings, one can perform the 
+//    following operations:
+//
+//    // obtain the global index of the 3rd item in block "a"
+//    int gidx = reco_indexer.global_index("a", 3);
+//
+//    // can also loop the global indices
+//    int a_first_gidx = reco_indexer.start_index("a");
+//    int a_block_size = reco_indexer.block_size("a");
+//    for (int i = a_first_gidx; i < a_first_gidx+a_block_size; ++i) {
+//      // do stuff
+//    }
+//
 class RecoIndexer {
 
   public:
