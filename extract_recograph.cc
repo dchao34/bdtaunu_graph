@@ -13,126 +13,137 @@
 #include "pgstring_convert.h"
 #include "PsqlReader.h"
 #include "RecoIndexer.h"
+#include "RecoEdgeAssociator.h"
 
 using namespace std;
 using namespace boost;
 
-std::unordered_map<int, std::string> create_block_map() {
-  std::unordered_map<int, std::string> block_map;
-  block_map.insert({70553, "y"});
-  block_map.insert({521, "b"});
-  block_map.insert({-521, "b"});
-  block_map.insert({511, "b"});
-  block_map.insert({-511, "b"});
-  block_map.insert({413, "d"});
-  block_map.insert({-413, "d"});
-  block_map.insert({423, "d"});
-  block_map.insert({-423, "d"});
-  block_map.insert({421, "d"});
-  block_map.insert({-421, "d"});
-  block_map.insert({411, "d"});
-  block_map.insert({-411, "d"});
-  block_map.insert({310, "c"});
-  block_map.insert({213, "c"});
-  block_map.insert({-213, "c"});
-  block_map.insert({111, "c"});
-  block_map.insert({321, "h"});
-  block_map.insert({-321, "h"});
-  block_map.insert({211, "h"});
-  block_map.insert({-211, "h"});
-  block_map.insert({11, "l"});
-  block_map.insert({-11, "l"});
-  block_map.insert({13, "l"});
-  block_map.insert({-13, "l"});
-  block_map.insert({22, "gamma"});
-  return block_map;
+
+// convenience function to determine reconstruction adjacencies 
+// for given block
+void add_edges(
+    const std::string &block_name,
+    const RecoIndexer &reco_indexer,
+    const RecoEdgeAssociator &edge_assoc,
+    const std::unordered_map<int, std::string> &lund2block,
+    std::vector<int> &from, std::vector<int> &to, 
+    int &n_edges) {
+
+  for (int i = 0; i < edge_assoc.n_mothers(); ++i) {
+
+    int u = reco_indexer.global_index(block_name, i);
+
+    for (int j = 0; j < edge_assoc.n_daughters(i); ++j) {
+
+      int v = reco_indexer.global_index(
+          lund2block.at(edge_assoc.daughter_lund(i, j)), 
+          edge_assoc.daughter_idx(i, j));
+
+      from.push_back(u);
+      to.push_back(v);
+      ++n_edges;
+    }
+  }
 }
 
 
+// output csv formatting functions
+void write_title_line(std::ostream &os) {
+  os << "eid,n_vertices,n_edges,from,to,lund_id,"
+        "y_reco_idx,b_reco_idx,d_reco_idx,c_reco_idx,"
+        "h_reco_idx,l_reco_idx,gamma_reco_idx";
+  os << std::endl;
+}
 
-class DaughterIndexer {
+void write_record_line(
+  std::ostream &os, size_t eid, 
+  int n_vertices, int n_edges,
+  const std::vector<int> &from, const std::vector<int> &to,
+  const std::vector<int> &lund_id, 
+  const std::vector<int> &y_reco_idx, const std::vector<int> &b_reco_idx, 
+  const std::vector<int> &d_reco_idx, const std::vector<int> &c_reco_idx, 
+  const std::vector<int> &h_reco_idx, const std::vector<int> &l_reco_idx, 
+  const std::vector<int> &gamma_reco_idx) {
 
-  public: 
-    DaughterIndexer(int max_daughters, 
-                    const std::unordered_map<int, std::string> &lund2block) 
-      : max_daus_(max_daughters),
-        lund2block_(lund2block),
-        dau_lund_(max_daughters),
-        dau_idx_(max_daughters) {}
+  os << eid << ",";
+  os << n_vertices << ",";
+  os << n_edges << ",";
+  os << vector2pgstring(from) << ",";
+  os << vector2pgstring(to) << ",";
+  os << vector2pgstring(lund_id) << ",";
+  os << vector2pgstring(y_reco_idx) << ",";
+  os << vector2pgstring(b_reco_idx) << ",";
+  os << vector2pgstring(d_reco_idx) << ",";
+  os << vector2pgstring(c_reco_idx) << ",";
+  os << vector2pgstring(h_reco_idx) << ",";
+  os << vector2pgstring(l_reco_idx) << ",";
+  os << vector2pgstring(gamma_reco_idx);
+  os << std::endl;
+}
 
-    void set_daughters(int n_daus, 
-                       const std::vector<int> &lund,
-                       const std::vector<int> &idx) {
-      if (n_daus > max_daus_) {
-        throw std::overflow_error(
-            "DaughterIndexer::set_daughters(): exceeded maximum daughters. ");
-      }
 
-      if (lund.size() != max_daus_ || idx.size() != max_daus_) {
-        throw std::length_error(
-            "DaughterIndexer::set_daughters(): daughter vector length mismatch. ");
-      }
-
-      n_daus_ = n_daus;
-      dau_lund_ = lund;
-      dau_idx_ = idx;
-    }
-
-    int get_n_daus() const { return n_daus_; }
-
-    std::pair<std::string, int> get_daughter_block_index(int i) {
-
-      if (i >= n_daus_) { 
-        throw std::out_of_range(
-            "DaughterIndexer::get_daughter_block_index(): "
-            "query index exceeded total daughters. ");
-      }
-
-      return { lund2block_[dau_lund_[i]], dau_idx_[i] };
-
-    }
-
-  private:
-    int max_daus_;
-    std::unordered_map<int, std::string> lund2block_;
-
-    int n_daus_;
-    std::vector<int> dau_lund_;
-    std::vector<int> dau_idx_;
-
-};
-
+// reads the framework ntuple reconstruction adjacencies to produce 
+// the more natural adjacency list representation
 int main() {
 
+  // 1. setup data structures. see the BtaTupleMaker block to 
+  //    decide how to initialize these structures. 
+
+  // lund id to reconstruction block mapping. 
+  std::unordered_map<int, std::string> lund2block;
+  lund2block.insert({70553, "y"});
+  lund2block.insert({521, "b"});
+  lund2block.insert({-521, "b"});
+  lund2block.insert({511, "b"});
+  lund2block.insert({-511, "b"});
+  lund2block.insert({413, "d"});
+  lund2block.insert({-413, "d"});
+  lund2block.insert({423, "d"});
+  lund2block.insert({-423, "d"});
+  lund2block.insert({421, "d"});
+  lund2block.insert({-421, "d"});
+  lund2block.insert({411, "d"});
+  lund2block.insert({-411, "d"});
+  lund2block.insert({310, "c"});
+  lund2block.insert({213, "c"});
+  lund2block.insert({-213, "c"});
+  lund2block.insert({111, "c"});
+  lund2block.insert({321, "h"});
+  lund2block.insert({-321, "h"});
+  lund2block.insert({211, "h"});
+  lund2block.insert({-211, "h"});
+  lund2block.insert({11, "l"});
+  lund2block.insert({-11, "l"});
+  lund2block.insert({13, "l"});
+  lund2block.insert({-13, "l"});
+  lund2block.insert({22, "gamma"});
+
+  // global indexer for all reconstructed particles
   RecoIndexer reco_indexer({"y", "b", "d", "c", "h", "l", "gamma"}, 
                            {800, 400, 200, 100, 100, 100, 100});
 
-  std::unordered_map<int, std::string> lund2block = create_block_map();
-  DaughterIndexer y_dau_indexer(2, lund2block);
-  DaughterIndexer b_dau_indexer(4, lund2block);
-  DaughterIndexer d_dau_indexer(5, lund2block);
-  DaughterIndexer c_dau_indexer(2, lund2block);
-  DaughterIndexer h_dau_indexer(2, lund2block);
-  DaughterIndexer l_dau_indexer(3, lund2block);
+  // data structure that vastly simplifies how 
+  // reconstruction edges are associated
+  RecoEdgeAssociator y_assoc(800, 2);
+  RecoEdgeAssociator b_assoc(400, 4);
+  RecoEdgeAssociator d_assoc(200, 5);
+  RecoEdgeAssociator c_assoc(100, 2);
+  RecoEdgeAssociator h_assoc(100, 2);
+  RecoEdgeAssociator l_assoc(100, 3);
 
-  int eid;
-  int ny, nb, nd, nc, nh, nl, ngamma;
-  std::vector<int> ylund, blund, dlund, clund, hlund, llund, gammalund;
-  std::vector<int> yndaus, bndaus, dndaus, cndaus, hndaus, lndaus, gammandaus;
-  std::vector<int> yd1lund, yd2lund;
-  std::vector<int> yd1idx, yd2idx;
-  std::vector<int> bd1lund, bd2lund, bd3lund, bd4lund;
-  std::vector<int> bd1idx, bd2idx, bd3idx, bd4idx;
-  std::vector<int> dd1lund, dd2lund, dd3lund, dd4lund, dd5lund;
-  std::vector<int> dd1idx, dd2idx, dd3idx, dd4idx, dd5idx;
-  std::vector<int> cd1lund, cd2lund;
-  std::vector<int> cd1idx, cd2idx;
-  std::vector<int> hd1lund, hd2lund;
-  std::vector<int> hd1idx, hd2idx;
-  std::vector<int> ld1lund, ld2lund, ld3lund;
-  std::vector<int> ld1idx, ld2idx, ld3idx;
+  // 2. declare the data to compute
+  int n_vertices, n_edges;
+  std::vector<int> from, to;
+  std::vector<int> lund_id;
+  std::vector<int> y_reco_idx, b_reco_idx, d_reco_idx, c_reco_idx;
+  std::vector<int> h_reco_idx, l_reco_idx, gamma_reco_idx;
 
+  // 3. open output file
+  std::ofstream fout; 
+  fout.open("recograph_adjacency.csv");
+  write_title_line(fout);
 
+  // 4. open postgres reader and declare the required input data
   PsqlReader psql; 
   psql.open_connection("dbname=testing");
   psql.open_cursor("framework_ntuples", 
@@ -151,30 +162,32 @@ int main() {
         "hd1lund", "hd2lund", 
         "hd1idx", "hd2idx", 
         "ld1lund", "ld2lund", "ld3lund", 
-        "ld1idx", "ld2idx", "ld3idx" },
-      5000);
+        "ld1idx", "ld2idx", "ld3idx" });
 
-  int n_vertices, n_edges;
-  std::vector<int> from, to;
-  std::vector<int> lund_id;
-  std::vector<int> y_reco_idx, b_reco_idx, d_reco_idx, c_reco_idx;
-  std::vector<int> h_reco_idx, l_reco_idx, gamma_reco_idx;
+  // initialize location to save downloaded data
+  int eid;
+  int ny, nb, nd, nc, nh, nl, ngamma;
+  std::vector<int> ylund, blund, dlund, clund, hlund, llund, gammalund;
+  std::vector<int> yndaus, bndaus, dndaus, cndaus, hndaus, lndaus, gammandaus;
+  std::vector<int> yd1lund, yd2lund;
+  std::vector<int> yd1idx, yd2idx;
+  std::vector<int> bd1lund, bd2lund, bd3lund, bd4lund;
+  std::vector<int> bd1idx, bd2idx, bd3idx, bd4idx;
+  std::vector<int> dd1lund, dd2lund, dd3lund, dd4lund, dd5lund;
+  std::vector<int> dd1idx, dd2idx, dd3idx, dd4idx, dd5idx;
+  std::vector<int> cd1lund, cd2lund;
+  std::vector<int> cd1idx, cd2idx;
+  std::vector<int> hd1lund, hd2lund;
+  std::vector<int> hd1idx, hd2idx;
+  std::vector<int> ld1lund, ld2lund, ld3lund;
+  std::vector<int> ld1idx, ld2idx, ld3idx;
 
-  std::ofstream fout; fout.open("recograph_adjacency.csv");
-  fout << "eid,n_vertices,n_edges,from,to,lund_id,";
-  fout << "y_reco_idx,b_reco_idx,d_reco_idx,c_reco_idx,h_reco_idx,l_reco_idx,gamma_reco_idx";
-  fout << std::endl;
-
+  // main loop
   int n_records = 0;
   while (psql.next()) {
     ++n_records;
 
-    n_vertices = 0; n_edges = 0;
-    from.clear(); to.clear(); lund_id.clear();
-    y_reco_idx.clear(), b_reco_idx.clear(); 
-    d_reco_idx.clear(), c_reco_idx.clear();
-    h_reco_idx.clear(), l_reco_idx.clear(), gamma_reco_idx.clear();
-
+    // 6. download all the data
     pgstring_convert(psql.get("eid"), eid);
 
     pgstring_convert(psql.get("ny"), ny);
@@ -243,175 +256,87 @@ int main() {
     pgstring_convert(psql.get("ld3lund"), ld3lund);
     pgstring_convert(psql.get("ld3idx"), ld3idx);
 
+
+    // 7. update data structures
     reco_indexer.set_block_sizes({ny, nb, nd, nc, nh, nl, ngamma});
+    y_assoc.associate_edges(ny, ylund, yndaus, 
+      { yd1lund, yd2lund }, { yd1idx, yd2idx });
+    b_assoc.associate_edges(nb, blund, bndaus, 
+      { bd1lund, bd2lund, bd3lund, bd4lund }, 
+      { bd1idx, bd2idx, bd3idx, bd4idx });
+    d_assoc.associate_edges(nd, dlund, dndaus, 
+      { dd1lund, dd2lund, dd3lund, dd4lund, dd5lund }, 
+      { dd1idx, dd2idx, dd3idx, dd4idx, dd5idx });
+    c_assoc.associate_edges(nc, clund, cndaus, 
+      { cd1lund, cd2lund }, { cd1idx, cd2idx });
+    h_assoc.associate_edges(nh, hlund, hndaus, 
+      { hd1lund, hd2lund }, { hd1idx, hd2idx });
+    l_assoc.associate_edges(nl, llund, lndaus, 
+      { ld1lund, ld2lund, ld3lund }, { ld1idx, ld2idx, ld3idx});
 
-    n_vertices = reco_indexer.total_size();
+    // 8. skip problematic records
 
-    int y_start_index = reco_indexer.start_index("y");
-    int b_start_index = reco_indexer.start_index("b");
-    int d_start_index = reco_indexer.start_index("d");
-    int c_start_index = reco_indexer.start_index("c");
-    int h_start_index = reco_indexer.start_index("h");
-    int l_start_index = reco_indexer.start_index("l");
-    int gamma_start_index = reco_indexer.start_index("gamma");
-    for (int i = 0; i < ny; ++i) { 
-      y_reco_idx.push_back(y_start_index + i); 
-      lund_id.push_back(ylund[i]);
-    }
-    for (int i = 0; i < nb; ++i) { 
-      b_reco_idx.push_back(b_start_index + i); 
-      lund_id.push_back(blund[i]);
-    }
-    for (int i = 0; i < nd; ++i) { 
-      d_reco_idx.push_back(d_start_index + i); 
-      lund_id.push_back(dlund[i]);
-    }
-    for (int i = 0; i < nc; ++i) { 
-      c_reco_idx.push_back(c_start_index + i); 
-      lund_id.push_back(clund[i]);
-    }
-    for (int i = 0; i < nh; ++i) { 
-      h_reco_idx.push_back(h_start_index + i); 
-      lund_id.push_back(hlund[i]);
-    }
-    for (int i = 0; i < nl; ++i) { 
-      l_reco_idx.push_back(l_start_index + i); 
-      lund_id.push_back(llund[i]);
-    }
-    for (int i = 0; i < ngamma; ++i) { 
-      gamma_reco_idx.push_back(gamma_start_index + i); 
-      lund_id.push_back(gammalund[i]);
-    }
-
-
+    // bta tuple maker known to have bugs when candidate block is full
     if (reco_indexer.has_full_block()) { continue; }
 
-    std::string block; int idx;
+    // 9. compute quantities of interest 
 
-    for (int i = 0; i < ny; ++i) {
-      y_dau_indexer.set_daughters(yndaus[i], 
-          {yd1lund[i], yd2lund[i]}, 
-          {yd1idx[i], yd2idx[i]});
+    // clear cache
+    n_vertices = 0; n_edges = 0;
+    from.clear(); to.clear(); 
+    lund_id.clear();
+    y_reco_idx.clear(), b_reco_idx.clear(); 
+    d_reco_idx.clear(), c_reco_idx.clear();
+    h_reco_idx.clear(), l_reco_idx.clear(); 
+    gamma_reco_idx.clear();
 
-      int u = y_start_index + i;
-      for (int j = 0; j < yndaus[i]; ++j) {
+    // compute n_vertices
+    n_vertices = reco_indexer.total_size();
 
-        std::tie(block, idx) = y_dau_indexer.get_daughter_block_index(j);
-        int v = reco_indexer.global_index(block, idx);
+    // compute local to global index mappings
+    for (int i = 0; i < ny; ++i) { y_reco_idx.push_back(reco_indexer.global_index("y", i)); }
+    for (int i = 0; i < nb; ++i) { b_reco_idx.push_back(reco_indexer.global_index("b", i)); }
+    for (int i = 0; i < nd; ++i) { d_reco_idx.push_back(reco_indexer.global_index("d", i)); }
+    for (int i = 0; i < nc; ++i) { c_reco_idx.push_back(reco_indexer.global_index("c", i)); }
+    for (int i = 0; i < nh; ++i) { h_reco_idx.push_back(reco_indexer.global_index("h", i)); }
+    for (int i = 0; i < nl; ++i) { l_reco_idx.push_back(reco_indexer.global_index("l", i)); }
+    for (int i = 0; i < ngamma; ++i) { gamma_reco_idx.push_back(reco_indexer.global_index("gamma", i)); }
 
-        from.push_back(u);
-        to.push_back(v);
-        ++n_edges;
-      }
-    }
+    // compute global lund id
+    lund_id = std::vector<int>(n_vertices);
+    for (int i = 0; i < ny; ++i) { lund_id[reco_indexer.global_index("y", i)] = ylund[i]; }
+    for (int i = 0; i < nb; ++i) { lund_id[reco_indexer.global_index("b", i)] = blund[i]; }
+    for (int i = 0; i < nd; ++i) { lund_id[reco_indexer.global_index("d", i)] = dlund[i]; }
+    for (int i = 0; i < nc; ++i) { lund_id[reco_indexer.global_index("c", i)] = clund[i]; }
+    for (int i = 0; i < nh; ++i) { lund_id[reco_indexer.global_index("h", i)] = hlund[i]; }
+    for (int i = 0; i < nl; ++i) { lund_id[reco_indexer.global_index("l", i)] = llund[i]; }
+    for (int i = 0; i < ngamma; ++i) { lund_id[reco_indexer.global_index("gamma", i)] = gammalund[i]; }
 
-    for (int i = 0; i < nb; ++i) {
-      b_dau_indexer.set_daughters(bndaus[i], 
-          {bd1lund[i], bd2lund[i], bd3lund[i], bd4lund[i]}, 
-          {bd1idx[i], bd2idx[i], bd3idx[i], bd4idx[i]});
 
-      int u = b_start_index + i;
-      for (int j = 0; j < bndaus[i]; ++j) {
+    // compute edge count and edge adjacency 
+    add_edges("y", reco_indexer, y_assoc, lund2block, from, to, n_edges);
+    add_edges("b", reco_indexer, b_assoc, lund2block, from, to, n_edges);
+    add_edges("d", reco_indexer, d_assoc, lund2block, from, to, n_edges);
+    add_edges("c", reco_indexer, c_assoc, lund2block, from, to, n_edges);
+    add_edges("h", reco_indexer, h_assoc, lund2block, from, to, n_edges);
+    add_edges("l", reco_indexer, l_assoc, lund2block, from, to, n_edges);
 
-        std::tie(block, idx) = b_dau_indexer.get_daughter_block_index(j);
-        int v = reco_indexer.global_index(block, idx);
 
-        from.push_back(u);
-        to.push_back(v);
-        ++n_edges;
-      }
-    }
-
-    for (int i = 0; i < nd; ++i) {
-      d_dau_indexer.set_daughters(dndaus[i], 
-          {dd1lund[i], dd2lund[i], dd3lund[i], dd4lund[i], dd5lund[i]}, 
-          {dd1idx[i], dd2idx[i], dd3idx[i], dd4idx[i], dd5idx[i]});
-
-      int u = d_start_index + i;
-      for (int j = 0; j < dndaus[i]; ++j) {
-
-        std::tie(block, idx) = d_dau_indexer.get_daughter_block_index(j);
-        int v = reco_indexer.global_index(block, idx);
-
-        from.push_back(u);
-        to.push_back(v);
-        ++n_edges;
-      }
-    }
-
-    for (int i = 0; i < nc; ++i) {
-      c_dau_indexer.set_daughters(cndaus[i], 
-          {cd1lund[i], cd2lund[i]}, 
-          {cd1idx[i], cd2idx[i]});
-
-      int u = c_start_index + i;
-      for (int j = 0; j < cndaus[i]; ++j) {
-
-        std::tie(block, idx) = c_dau_indexer.get_daughter_block_index(j);
-        int v = reco_indexer.global_index(block, idx);
-
-        from.push_back(u);
-        to.push_back(v);
-        ++n_edges;
-      }
-    }
-
-    for (int i = 0; i < nh; ++i) {
-      h_dau_indexer.set_daughters(hndaus[i], 
-          {hd1lund[i], hd2lund[i]}, 
-          {hd1idx[i], hd2idx[i]});
-
-      int u = h_start_index + i;
-      for (int j = 0; j < hndaus[i]; ++j) {
-
-        std::tie(block, idx) = h_dau_indexer.get_daughter_block_index(j);
-        int v = reco_indexer.global_index(block, idx);
-
-        from.push_back(u);
-        to.push_back(v);
-        ++n_edges;
-      }
-    }
-
-    for (int i = 0; i < nl; ++i) {
-      l_dau_indexer.set_daughters(lndaus[i], 
-          {ld1lund[i], ld2lund[i], ld3lund[i]}, 
-          {ld1idx[i], ld2idx[i], ld3idx[i]});
-
-      int u = l_start_index + i;
-      for (int j = 0; j < lndaus[i]; ++j) {
-
-        std::tie(block, idx) = l_dau_indexer.get_daughter_block_index(j);
-        int v = reco_indexer.global_index(block, idx);
-
-        from.push_back(u);
-        to.push_back(v);
-        ++n_edges;
-      }
-    }
-
-    fout << eid << ",";
-    fout << n_vertices << ",";
-    fout << n_edges << ",";
-    fout << vector2pgstring(from) << ",";
-    fout << vector2pgstring(to) << ",";
-    fout << vector2pgstring(lund_id) << ",";
-    fout << vector2pgstring(y_reco_idx) << ",";
-    fout << vector2pgstring(b_reco_idx) << ",";
-    fout << vector2pgstring(d_reco_idx) << ",";
-    fout << vector2pgstring(c_reco_idx) << ",";
-    fout << vector2pgstring(h_reco_idx) << ",";
-    fout << vector2pgstring(l_reco_idx) << ",";
-    fout << vector2pgstring(gamma_reco_idx);
-    fout << std::endl;
+    // 10. write to file
+    write_record_line(fout, eid, 
+        n_vertices, n_edges, from, to, lund_id,
+        y_reco_idx, b_reco_idx, d_reco_idx, c_reco_idx,
+        h_reco_idx, l_reco_idx, gamma_reco_idx);
 
   }
-  std::cout << n_records << std::endl;
 
+  std::cout << "processed " << n_records << "rows. " << std::endl;
+
+  // 11. close file and postgres connection
   fout.close();
-
   psql.close_cursor();
   psql.close_connection();
 
   return 0;
 }
+

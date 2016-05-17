@@ -1,5 +1,5 @@
-BINARIES = extract_mcgraph extract_recograph read_mcgraph 
-OBJECTS = PsqlReader.o RecoIndexer.o
+BINARIES = extract_mcgraph extract_recograph examine_graph 
+OBJECTS = PsqlReader.o RecoIndexer.o RecoEdgeAssociator.o
 
 BOOST_ROOT = /usr/local/boost_1_56_0
 BOOST_LIBS = $(BOOST_ROOT)/stage/lib
@@ -29,7 +29,7 @@ all : $(BINARIES)
 extract_recograph : $(addprefix $(BUILDDIR)/, extract_recograph.o $(OBJECTS))
 	$(CXX) $(LDFLAGS) $^ -o $@
 	
-read_mcgraph : $(addprefix $(BUILDDIR)/, read_mcgraph.o $(OBJECTS))
+examine_graph : $(addprefix $(BUILDDIR)/, examine_graph.o $(OBJECTS))
 	$(CXX) $(LDFLAGS) $^ -o $@
 	
 extract_mcgraph : $(addprefix $(BUILDDIR)/, extract_mcgraph.o $(OBJECTS))
