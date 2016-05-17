@@ -86,7 +86,7 @@ int main() {
   NameMap index = get(&ParticleProperties::idx, g);
   NameMap lundmap = get(&ParticleProperties::lund_id, g);
   boost::write_graphviz(std::cout, g, //make_label_writer(lundmap), 
-                        particle_writer<NameMap>(lundmap, "pdt.dat"),
+                        particle_writer<NameMap>(lundmap, "cache/pdt.dat"),
                         default_writer(), default_writer(), 
                         index);
 

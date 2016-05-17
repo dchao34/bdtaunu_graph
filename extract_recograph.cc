@@ -12,67 +12,10 @@
 
 #include "pgstring_convert.h"
 #include "PsqlReader.h"
+#include "RecoIndexer.h"
 
 using namespace std;
 using namespace boost;
-
-class RecoIndexer {
-
-  public:
-    RecoIndexer(const std::vector<std::string> &block_names) 
-      : block_sizes_(block_names.size()), 
-        start_indices_(block_names.size()) {
-      for (int i = 0; i < block_names.size(); ++i) { 
-        name2block_[block_names[i]] = i;
-      }
-    }
-
-    void set_block_sizes(const std::vector<int> &block_sizes) {
-
-      if (block_sizes.size() != block_sizes_.size()) { 
-        throw std::length_error(
-            "RecoIndexer::set_block_size(): block size mismatch. ");
-      }
-
-      block_sizes_ = block_sizes;
-
-      total_ = std::accumulate(block_sizes_.begin(), block_sizes_.end(), 0);
-
-      for (int i = 1; i < block_sizes.size(); ++i) {
-        start_indices_[i] = start_indices_[i-1] + block_sizes[i-1];
-      }
-
-    }
-
-    int get_start_index(const std::string &block_name) {
-      return start_indices_[name2block_[block_name]];
-    }
-
-    int get_block_size(const std::string &block_name) {
-      return block_sizes_[name2block_[block_name]];
-    }
-
-    int get_total_size() const {
-      return total_;
-    }
-
-    int get_index(const std::string &block_name, int idx) {
-      int block_idx = name2block_[block_name];
-      if (idx >= block_sizes_[block_idx]) {
-        throw std::out_of_range(
-            "RecoIndexer::get_index(): index exceeded maximum. ");
-      }
-      return start_indices_[block_idx] + idx;
-    }
-
-  private:
-    std::unordered_map<std::string, int> name2block_;
-    std::vector<int> block_sizes_;
-    std::vector<int> start_indices_;
-
-    int total_;
-
-};
 
 std::unordered_map<int, std::string> create_block_map() {
   std::unordered_map<int, std::string> block_map;
@@ -161,7 +104,8 @@ class DaughterIndexer {
 
 int main() {
 
-  RecoIndexer reco_indexer({"y", "b", "d", "c", "h", "l", "gamma"});
+  RecoIndexer reco_indexer({"y", "b", "d", "c", "h", "l", "gamma"}, 
+                           {800, 400, 200, 100, 100, 100, 100});
 
   std::unordered_map<int, std::string> lund2block = create_block_map();
   DaughterIndexer y_dau_indexer(2, lund2block);
@@ -301,15 +245,15 @@ int main() {
 
     reco_indexer.set_block_sizes({ny, nb, nd, nc, nh, nl, ngamma});
 
-    n_vertices = reco_indexer.get_total_size();
+    n_vertices = reco_indexer.total_size();
 
-    int y_start_index = reco_indexer.get_start_index("y");
-    int b_start_index = reco_indexer.get_start_index("b");
-    int d_start_index = reco_indexer.get_start_index("d");
-    int c_start_index = reco_indexer.get_start_index("c");
-    int h_start_index = reco_indexer.get_start_index("h");
-    int l_start_index = reco_indexer.get_start_index("l");
-    int gamma_start_index = reco_indexer.get_start_index("gamma");
+    int y_start_index = reco_indexer.start_index("y");
+    int b_start_index = reco_indexer.start_index("b");
+    int d_start_index = reco_indexer.start_index("d");
+    int c_start_index = reco_indexer.start_index("c");
+    int h_start_index = reco_indexer.start_index("h");
+    int l_start_index = reco_indexer.start_index("l");
+    int gamma_start_index = reco_indexer.start_index("gamma");
     for (int i = 0; i < ny; ++i) { 
       y_reco_idx.push_back(y_start_index + i); 
       lund_id.push_back(ylund[i]);
@@ -340,10 +284,7 @@ int main() {
     }
 
 
-    if (ny >= 800 || nb >= 400 || nd >= 200 ||
-        nc >= 100 || nh >= 100 || nl >= 100 || ngamma >= 100) {
-      continue;
-    }
+    if (reco_indexer.has_full_block()) { continue; }
 
     std::string block; int idx;
 
@@ -356,7 +297,7 @@ int main() {
       for (int j = 0; j < yndaus[i]; ++j) {
 
         std::tie(block, idx) = y_dau_indexer.get_daughter_block_index(j);
-        int v = reco_indexer.get_index(block, idx);
+        int v = reco_indexer.global_index(block, idx);
 
         from.push_back(u);
         to.push_back(v);
@@ -373,7 +314,7 @@ int main() {
       for (int j = 0; j < bndaus[i]; ++j) {
 
         std::tie(block, idx) = b_dau_indexer.get_daughter_block_index(j);
-        int v = reco_indexer.get_index(block, idx);
+        int v = reco_indexer.global_index(block, idx);
 
         from.push_back(u);
         to.push_back(v);
@@ -390,7 +331,7 @@ int main() {
       for (int j = 0; j < dndaus[i]; ++j) {
 
         std::tie(block, idx) = d_dau_indexer.get_daughter_block_index(j);
-        int v = reco_indexer.get_index(block, idx);
+        int v = reco_indexer.global_index(block, idx);
 
         from.push_back(u);
         to.push_back(v);
@@ -407,7 +348,7 @@ int main() {
       for (int j = 0; j < cndaus[i]; ++j) {
 
         std::tie(block, idx) = c_dau_indexer.get_daughter_block_index(j);
-        int v = reco_indexer.get_index(block, idx);
+        int v = reco_indexer.global_index(block, idx);
 
         from.push_back(u);
         to.push_back(v);
@@ -424,7 +365,7 @@ int main() {
       for (int j = 0; j < hndaus[i]; ++j) {
 
         std::tie(block, idx) = h_dau_indexer.get_daughter_block_index(j);
-        int v = reco_indexer.get_index(block, idx);
+        int v = reco_indexer.global_index(block, idx);
 
         from.push_back(u);
         to.push_back(v);
@@ -441,7 +382,7 @@ int main() {
       for (int j = 0; j < lndaus[i]; ++j) {
 
         std::tie(block, idx) = l_dau_indexer.get_daughter_block_index(j);
-        int v = reco_indexer.get_index(block, idx);
+        int v = reco_indexer.global_index(block, idx);
 
         from.push_back(u);
         to.push_back(v);

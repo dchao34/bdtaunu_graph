@@ -1,5 +1,5 @@
-BINARIES = extract_mcgraph extract_recograph #read_mcgraph 
-OBJECTS = PsqlReader.o
+BINARIES = extract_mcgraph extract_recograph read_mcgraph 
+OBJECTS = PsqlReader.o RecoIndexer.o
 
 BOOST_ROOT = /usr/local/boost_1_56_0
 BOOST_LIBS = $(BOOST_ROOT)/stage/lib
