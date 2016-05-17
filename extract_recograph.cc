@@ -183,7 +183,7 @@ int main() {
   std::vector<int> ld1idx, ld2idx, ld3idx;
 
   // main loop
-  int n_records = 0;
+  size_t n_records = 0;
   while (psql.next()) {
     ++n_records;
 
@@ -330,12 +330,12 @@ int main() {
 
   }
 
-  std::cout << "processed " << n_records << "rows. " << std::endl;
-
   // 11. close file and postgres connection
   fout.close();
   psql.close_cursor();
   psql.close_connection();
+
+  std::cout << "processed " << n_records << " rows. " << std::endl;
 
   return 0;
 }

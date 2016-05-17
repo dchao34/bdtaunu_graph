@@ -27,7 +27,9 @@ int main() {
   int n_vertices, n_edges;
   std::vector<int> from_vertices, to_vertices;
 
+  size_t n_records = 0;
   while (psql.next()) {
+    ++n_records;
 
     pgstring_convert(psql.get("eid"), eid);
     pgstring_convert(psql.get("mclen"), mclen);
@@ -64,6 +66,8 @@ int main() {
   // close database connection
   psql.close_cursor();
   psql.close_connection();
+
+  std::cout << "processed " << n_records << " rows. " << std::endl;
 
   return 0;
 }
