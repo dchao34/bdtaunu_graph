@@ -1,7 +1,6 @@
-BINARIES = extract_mcgraph extract_recograph examine_graph 
-OBJECTS = RecoIndexer.o RecoEdgeAssociator.o
+OBJECTS = PsqlReader.o
 
-UTILS_ROOT = ../utils
+LIBNAME = libbdtaunu_graphutils.so
 
 BOOST_ROOT = /usr/local/boost_1_56_0
 BOOST_LIBS = $(BOOST_ROOT)/stage/lib
@@ -10,11 +9,10 @@ LIBPQ_ROOT = /usr/local/pgsql
 LIBPQ_INCS = $(LIBPQ_ROOT)/include
 LIBPQ_LIBS = $(LIBPQ_ROOT)/lib
 
-INCFLAGS = -I$(UTILS_ROOT) -I$(BOOST_ROOT) -I$(LIBPQ_INCS)
-LDFLAGS = -L $(UTILS_ROOT) -L$(BOOST_LIBS) -L$(LIBPQ_LIBS) \
-					-Wl,-rpath,$(UTILS_ROOT) -lbdtaunu_graphutils \
+INCFLAGS = -I$(BOOST_ROOT) -I$(LIBPQ_INCS)
+LDFLAGS = -L$(BOOST_LIBS) -L$(LIBPQ_LIBS) \
 					-Wl,-rpath,$(BOOST_LIBS) -lboost_program_options \
-					-Wl,-rpath,$(LIBPQ_LIBS) -lpq
+					-Wl,-rpath,$(BOOST_LIBS) -lpq
 
 CXX := g++
 CXXFLAGS = -Wall -pthread -std=c++11 -O2 -Wno-unused-local-typedef -Wno-redeclared-class-member
@@ -27,16 +25,16 @@ $(shell mkdir -p $(DEPDIR) > /dev/null)
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.Td
 POSTCOMPILE = @mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d
 
-all : $(BINARIES)
+lib : $(LIBNAME)
 
-extract_recograph : $(addprefix $(BUILDDIR)/, extract_recograph.o $(OBJECTS))
-	$(CXX) $(LDFLAGS) $^ -o $@
-	
-examine_graph : $(addprefix $(BUILDDIR)/, examine_graph.o $(OBJECTS))
-	$(CXX) $(LDFLAGS) $^ -o $@
-	
-extract_mcgraph : $(addprefix $(BUILDDIR)/, extract_mcgraph.o $(OBJECTS))
-	$(CXX) $(LDFLAGS) $^ -o $@
+$(LIBNAME) : $(addprefix $(BUILDDIR)/, $(OBJECTS))
+	if [ "$(shell uname)" = "Darwin" ]; then \
+    SHARED_LIB_FLAG="-dynamiclib -Wl,-install_name,@rpath/$(LIBNAME)"; \
+  else \
+    SHARED_LIB_FLAG="-shared -Wl,-soname,$(LIBNAME)"; \
+  fi; \
+	$(CXX) $${SHARED_LIB_FLAG} $(LDFLAGS) $^ -o $(LIBNAME)
+
 
 $(BUILDDIR)/%.o : %.cc
 $(BUILDDIR)/%.o : %.cc $(DEPDIR)/%.d
@@ -50,7 +48,7 @@ $(DEPDIR)/%.d: ;
 -include $(patsubst %,$(DEPDIR)/%.d,$(basename $(SRCS)))
 
 clean : 
-	@rm -f *~ $(BINARIES) $(BUILDDIR)/* *.pdf *.gif *.png *.gv *.ps *.csv
+	@rm -f *~ $(BUILDDIR)/* $(LIBNAME)
 
 cleanall : clean
 	@rm -f $(DEPDIR)/*

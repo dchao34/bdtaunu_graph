@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
   NameMap index = get(&ParticleProperties::idx, g);
   NameMap lundmap = get(&ParticleProperties::lund_id, g);
   boost::write_graphviz(std::cout, g, 
-                        particle_writer<NameMap>(lundmap, "cache/pdt.dat"),
+                        particle_writer<NameMap>(lundmap, "../dat/pdt.dat"),
                         default_writer(), default_writer(), 
                         index);
 
