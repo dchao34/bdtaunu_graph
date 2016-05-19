@@ -17,7 +17,7 @@ LDFLAGS = -L $(UTILS_ROOT) -L$(BOOST_LIBS) -L$(LIBPQ_LIBS) \
 					-Wl,-rpath,$(LIBPQ_LIBS) -lpq
 
 CXX := g++
-CXXFLAGS = -Wall -pthread -std=c++11 -O2 -Wno-unused-local-typedef -Wno-redeclared-class-member
+CXXFLAGS = -Wall -fPIC -pthread -std=c++11 -O2 -Wno-unused-local-typedef -Wno-redeclared-class-member
 
 SRCS = $(wildcard *.cc)
 BUILDDIR = build
