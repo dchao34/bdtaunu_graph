@@ -72,7 +72,108 @@ void TruthMatcher::construct_pruned_mc_graph() {
   // remove subtrees for final states reachable from the decay root
   remove_final_state_subtrees(pruned_mc_graph_);
 
+  // rip out particles that are not relevant for truth matching
+  rip_irrelevant_particles(pruned_mc_graph_);
+
 }
+
+
+void TruthMatcher::rip_irrelevant_particles(Graph &g) {
+
+  // set of particles that need to be ripped. keyed by mc idx_.
+  std::unordered_set<int> to_rip;
+
+  // stage the incoming e+ and e- particles for ripping
+  // their mc indices are 0 and 1 by construction
+  to_rip.insert(0);
+  to_rip.insert(1);
+
+  // stage undetectable particles for ripping
+  IntPropertyMap index_pm = get(&VertexProperties::idx_, g);
+  IntPropertyMap lund_pm = get(&VertexProperties::lund_id_, g);
+
+  VertexIter vi, vi_end;
+  for (std::tie(vi, vi_end) = vertices(g); vi != vi_end; ++vi) {
+    if (is_undetectable_particle(get(lund_pm, *vi))) {
+      to_rip.insert(get(index_pm, *vi));
+    }
+  }
+
+  // stage photons that do not descend from acceptable mothers for ripping
+  for (std::tie(vi, vi_end) = vertices(g); vi != vi_end; ++vi) {
+
+    if (get(lund_pm, *vi) == 22) {
+
+      InEdgeIter ie, ie_end;
+      std::tie(ie, ie_end) = in_edges(*vi, g);
+
+      Vertex u = source(*ie, g);
+      if (!is_acceptable_photon_mother(get(lund_pm, u))) {
+        to_rip.insert(get(index_pm, *vi));
+      }
+
+      // note: assume only one mother! 
+      assert(++ie == ie_end);
+
+    }
+  }
+
+  // rip vertices by contracting with its mother. in the case of 
+  // no mothers, the procedure is equivalent to just removing 
+  // the vertex and outgoing edges. 
+  //
+  // be careful with iterator invalidation
+  VertexIter next; std::tie(vi, vi_end) = vertices(g);
+  for (next = vi; vi != vi_end; vi = next) {
+    ++next;
+
+    if (to_rip.find(g[*vi].idx_) != to_rip.end()) {
+
+      // add edges from mother to daughters
+      InEdgeIter ie, ie_end;
+      for (std::tie(ie, ie_end) = in_edges(*vi, g); ie != ie_end; ++ie) {
+        Vertex u = source(*ie, g);
+
+        OutEdgeIter oe, oe_end;
+        for (std::tie(oe, oe_end) = out_edges(*vi, g); oe != oe_end; ++oe) {
+          Vertex v = target(*oe, g);
+          add_edge(u, v, g);
+        }
+      }
+
+      // clearn and remove the vertex
+      clear_vertex(*vi, g);
+      remove_vertex(*vi, g);
+    }
+  }
+}
+
+
+// decide if a particle is considered undetectable for truth matching
+bool TruthMatcher::is_undetectable_particle(int lund_id) {
+  switch (abs(lund_id)) {
+    case 12:
+    case 14:
+    case 15:
+    case 16:
+    case 311:
+      return true;
+  }
+  return false;
+}
+
+// decide if a particle is a valid photon mother for the purpose
+// of truth matching. 
+bool TruthMatcher::is_acceptable_photon_mother(int lund_id) {
+  switch (abs(lund_id)) {
+    case 111:
+    case 413:
+    case 423:
+      return true;
+  }
+  return false;
+}
+
 
 void TruthMatcher::remove_final_state_subtrees(Graph &g) {
 

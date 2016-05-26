@@ -92,7 +92,10 @@ class TruthMatcher {
     void construct_pruned_mc_graph();
     void remove_final_state_subtrees(Graph &g);
     void label_for_removal(Vertex, Graph&, std::vector<Vertex>&);
+    void rip_irrelevant_particles(Graph &g);
     bool is_final_state(int lund_id);
+    bool is_undetectable_particle(int lund_id);
+    bool is_acceptable_photon_mother(int lund_id);
 
   private:
     Graph mc_graph_;
