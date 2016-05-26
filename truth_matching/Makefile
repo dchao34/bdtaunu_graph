@@ -1,5 +1,5 @@
-BINARIES = test3
-OBJECTS = 
+BINARIES = test4
+OBJECTS = TruthMatcher.o
 
 UTILS_ROOT = ../utils
 

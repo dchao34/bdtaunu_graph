@@ -1,4 +1,4 @@
-CREATE VIEW mcreco AS 
+CREATE MATERIALIZED VIEW mcreco AS 
 SELECT
   eid, 
   mcgraph.n_vertices AS mc_n_vertices,
@@ -17,7 +17,7 @@ SELECT
 FROM 
   mcgraph INNER JOIN recograph using (eid);
 
-CREATE VIEW truth_match_info AS 
+CREATE MATERIALIZED VIEW truth_match_info AS 
 SELECT
   eid, 
   mc_n_vertices,
