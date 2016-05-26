@@ -20,8 +20,10 @@ class TruthMatcher {
       boost::listS, boost::listS,
       boost::bidirectionalS, VertexProperties>;
 
-    using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
-    using VertexIter = boost::graph_traits<Graph>::vertex_iterator;
+    using Vertex = typename boost::graph_traits<Graph>::vertex_descriptor;
+    using VertexIter = typename boost::graph_traits<Graph>::vertex_iterator;
+    using InEdgeIter = typename boost::graph_traits<Graph>::in_edge_iterator;
+    using OutEdgeIter = typename boost::graph_traits<Graph>::out_edge_iterator;
 
     using IntPropertyMap = boost::property_map<
       Graph, int VertexProperties::*>::type;
@@ -45,12 +47,15 @@ class TruthMatcher {
     );
 
     Graph get_mc_graph() const;
+    Graph get_pruned_mc_graph() const;
     Graph get_reco_graph() const;
 
     // get property maps. 
     // prefer to have const... but need to think of a way. to fix!
     IntPropertyMap get_mc_idx_pm();
     IntPropertyMap get_mc_lund_id_pm();
+    IntPropertyMap get_pruned_mc_idx_pm();
+    IntPropertyMap get_pruned_mc_lund_id_pm();
     IntPropertyMap get_reco_idx_pm();
     IntPropertyMap get_reco_lund_id_pm();
     IntPropertyMap get_reco_matched_idx_pm();
@@ -84,13 +89,21 @@ class TruthMatcher {
         const std::vector<std::vector<int>> &fs_reco_idx,
         const std::vector<std::vector<int>> &fs_matched_idx);
 
+    void construct_pruned_mc_graph();
+    void remove_final_state_subtrees(Graph &g);
+    void label_for_removal(Vertex, Graph&, std::vector<Vertex>&);
+    bool is_final_state(int lund_id);
+
   private:
     Graph mc_graph_;
     Graph reco_graph_;
+
+    Graph pruned_mc_graph_;
                       
 };
 
-inline TruthMatcher::Graph TruthMatcher::get_mc_graph() const { return mc_graph_; }
+inline TruthMatcher::Graph 
+TruthMatcher::get_mc_graph() const { return mc_graph_; }
 
 inline TruthMatcher::IntPropertyMap TruthMatcher::get_mc_idx_pm() { 
   return get(&VertexProperties::idx_, mc_graph_); 
@@ -98,6 +111,19 @@ inline TruthMatcher::IntPropertyMap TruthMatcher::get_mc_idx_pm() {
 
 inline TruthMatcher::IntPropertyMap TruthMatcher::get_mc_lund_id_pm() { 
   return get(&VertexProperties::lund_id_, mc_graph_); 
+}
+
+inline TruthMatcher::Graph 
+TruthMatcher::get_pruned_mc_graph() const { return pruned_mc_graph_; }
+
+inline TruthMatcher::IntPropertyMap 
+TruthMatcher::get_pruned_mc_idx_pm() { 
+  return get(&VertexProperties::idx_, pruned_mc_graph_); 
+}
+
+inline TruthMatcher::IntPropertyMap 
+TruthMatcher::get_pruned_mc_lund_id_pm() { 
+  return get(&VertexProperties::lund_id_, pruned_mc_graph_); 
 }
 
 inline TruthMatcher::Graph TruthMatcher::get_reco_graph() const { return reco_graph_; }

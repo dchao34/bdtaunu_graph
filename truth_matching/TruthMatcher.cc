@@ -1,4 +1,7 @@
 #include <algorithm>
+#include <unordered_set>
+#include <cmath>
+#include <queue>
 
 #include "TruthMatcher.h"
 
@@ -41,6 +44,7 @@ void TruthMatcher::set_graph(
 void TruthMatcher::clear_cache() {
   mc_graph_.clear();
   reco_graph_.clear();
+  pruned_mc_graph_.clear();
 }
 
 
@@ -56,6 +60,121 @@ void TruthMatcher::construct_mc_graph(
 
   populate_lund_id(mc_graph_, lund_id);
 
+  construct_pruned_mc_graph();
+
+}
+
+void TruthMatcher::construct_pruned_mc_graph() {
+
+  // start with a copy of the original mc_graph 
+  pruned_mc_graph_ = mc_graph_;
+
+  // remove subtrees for final states reachable from the decay root
+  remove_final_state_subtrees(pruned_mc_graph_);
+
+}
+
+void TruthMatcher::remove_final_state_subtrees(Graph &g) {
+
+  // find the decay root. this is the first daughter of the e+e- collision
+  Vertex decay_root;
+
+  VertexIter vi, vi_end;
+  for (std::tie(vi, vi_end) = vertices(g); vi != vi_end; ++vi) {
+    if (g[*vi].idx_ == 2) { decay_root = *vi; break; }
+  }
+
+  if (vi == vi_end) {
+    throw std::runtime_error(
+        "TruthMatcher::remove_final_state_subtrees(): " 
+        "couldn't find mc_idx 2. ");
+  }
+
+  // BFS for the final states and label their subtrees for removal.
+  // labelling and then removing avoids iterator invalidation. 
+  std::vector<Vertex> to_remove;
+  IntPropertyMap lund_pm = get(&VertexProperties::lund_id_, g);
+
+  std::unordered_set<Vertex> visited;
+
+  std::queue<Vertex> q; 
+  visited.insert(decay_root); q.push(decay_root);
+  while (!q.empty()) {
+
+    Vertex u = q.front(); q.pop();
+
+    // if `u` is considered a final state, then label all its daughter
+    // subtrees for removal
+    if (is_final_state(get(lund_pm, u))) {
+
+      OutEdgeIter oe, oe_end;
+      for (std::tie(oe, oe_end) = out_edges(u, g); 
+           oe != oe_end; ++oe) {
+        Vertex v = target(*oe, g);
+        label_for_removal(v, g, to_remove);
+      }
+
+    // if not a final state then continue exploring its daughters
+    } else {
+
+      OutEdgeIter oe, oe_end;
+      for (std::tie(oe, oe_end) = out_edges(u, g); 
+           oe != oe_end; ++oe) {
+        Vertex v = target(*oe, g);
+        if (visited.find(v) == visited.end()) {
+          visited.insert(v); q.push(v);
+        }
+      }
+
+    }
+  }
+
+  // remove those vertices that were labelled
+  for (auto u : to_remove) {
+    clear_vertex(u, g);
+    remove_vertex(u, g);
+  }
+}
+
+// push vertices in the subtree of `r` into `to_remove`.
+// perform BFS and push all reachable vertices
+void TruthMatcher::label_for_removal(Vertex r, Graph &g, std::vector<Vertex> &to_remove) {
+
+  std::unordered_set<Vertex> visited;
+
+  std::queue<Vertex> q; 
+  visited.insert(r); q.push(r);
+
+  while (!q.empty()) {
+
+    Vertex u = q.front(); q.pop();
+
+    OutEdgeIter oe, oe_end;
+    std::tie(oe, oe_end) = out_edges(u, g);
+    for (; oe != oe_end; ++oe) {
+      Vertex v = target(*oe, g);
+      if (visited.find(v) == visited.end()) {
+        visited.insert(v); q.push(v);
+      }
+    }
+
+    to_remove.push_back(u);
+  }
+}
+
+// decide if a lund id is considered a final state
+bool TruthMatcher::is_final_state(int lund_id) {
+  switch (abs(lund_id)) {
+    case 11:
+    case 13:
+    case 211:
+    case 321:
+    case 22:
+    case 2212:
+    case 2112:
+      return true;
+  }
+  return false;
 }
 
 void TruthMatcher::construct_reco_graph(
