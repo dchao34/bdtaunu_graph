@@ -13,18 +13,26 @@ template <class LundIdPropertyMap>
 class particle_writer {
 
 public:
-  particle_writer(LundIdPropertyMap lundpm, const std::string &fname) 
-    : lundpm_(lundpm), pdt_(fname) {
+  particle_writer(
+      LundIdPropertyMap lundpm, 
+      const std::string &fname, 
+      bool do_name_lookup=true) 
+    : lundpm_(lundpm), pdt_(fname), do_name_lookup_(do_name_lookup) {
   }
 
   template <class VertexOrEdge>
     void operator()(std::ostream& out, const VertexOrEdge &v) const {
-      out << "[label=\"" << pdt_.get(get(lundpm_, v)) << "\"]";
+      if (do_name_lookup_) {
+        out << "[label=\"" << pdt_.get(get(lundpm_, v)) << "\"]";
+      } else {
+        out << "[label=\"" << get(lundpm_, v) << "\"]";
+      }
     }
 
 private:
   LundIdPropertyMap lundpm_;
   ParticleTable pdt_;
+  bool do_name_lookup_;
 };
 
 
@@ -37,10 +45,11 @@ class ParticleGraphWriter {
               typename VertexIndexPropertyMap>
     void print(std::ostream &os, Graph g, 
                LundIdPropertyMap lund_pm, 
-               VertexIndexPropertyMap index_pm) {
+               VertexIndexPropertyMap index_pm, 
+               bool do_name_lookup=true) {
 
       boost::write_graphviz(os, g, 
-        particle_writer<LundIdPropertyMap>(lund_pm, pdt_fname_),
+        particle_writer<LundIdPropertyMap>(lund_pm, pdt_fname_, do_name_lookup),
         boost::default_writer(), 
         boost::default_writer(), 
         index_pm);

@@ -1,4 +1,4 @@
-BINARIES = test1
+BINARIES = test3
 OBJECTS = 
 
 UTILS_ROOT = ../utils
@@ -29,7 +29,7 @@ POSTCOMPILE = @mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d
 
 all : $(BINARIES)
 
-test1 : $(addprefix $(BUILDDIR)/, test1.o $(OBJECTS))
+test% : $(addprefix $(BUILDDIR)/, test%.o $(OBJECTS))
 	$(CXX) $(LDFLAGS) $^ -o $@
 	
 $(BUILDDIR)/%.o : %.cc
