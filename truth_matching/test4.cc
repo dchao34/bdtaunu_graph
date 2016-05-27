@@ -52,10 +52,8 @@ int main() {
   pgstring_convert(psql.get("gamma_reco_idx"), gamma_reco_idx);
   pgstring_convert(psql.get("gammamcidx"), gammamcidx);
 
-
-
   
-  // truth match
+  // compute truth match
   TruthMatcher tm;
   tm.set_graph(
       mc_n_vertices, mc_n_edges,
@@ -68,41 +66,10 @@ int main() {
       { hmcidx, lmcidx, gammamcidx }
   );
 
-  auto pruned_mc_graph = tm.get_pruned_mc_graph();
-  auto pruned_mc_index_pm = tm.get_pruned_mc_idx_pm();
-  auto pruned_mc_lund_id_pm = tm.get_pruned_mc_lund_id_pm();
-
-  auto vtx_wtr = make_lund_id_writer(pruned_mc_lund_id_pm, "../dat/pdt.dat");
-  vtx_wtr.set_property("color", "blue");
-  print_graph(std::cout, pruned_mc_graph, 
-              pruned_mc_index_pm, 
-              vtx_wtr);
-
-  // print 
- // ParticleGraphWriter writer("../dat/pdt.dat");
-
-  /*auto mc_graph = tm.get_mc_graph();
-  auto mc_index_pm = tm.get_mc_idx_pm();
-  auto mc_lund_id_pm = tm.get_mc_lund_id_pm();
-  writer.print(std::cout, mc_graph, mc_lund_id_pm, mc_index_pm);
-  */
-
-/*  auto pruned_mc_graph = tm.get_pruned_mc_graph();
-  auto pruned_mc_index_pm = tm.get_pruned_mc_idx_pm();
-  auto pruned_mc_lund_id_pm = tm.get_pruned_mc_lund_id_pm();
-  writer.print(std::cout, pruned_mc_graph, pruned_mc_lund_id_pm, pruned_mc_index_pm);
-  */
-
-  /*auto reco_graph = tm.get_reco_graph();
-  auto reco_index_pm = tm.get_reco_idx_pm();
-  auto reco_lund_id_pm = tm.get_reco_lund_id_pm();
-  writer.print(std::cout, reco_graph, reco_lund_id_pm, reco_index_pm);
-  */
-  /*auto reco_graph = tm.get_reco_graph();
-  auto reco_index_pm = tm.get_reco_idx_pm();
-  auto reco_matched_idx_pm = tm.get_reco_matched_idx_pm();
-  writer.print(std::cout, reco_graph, reco_matched_idx_pm, reco_index_pm, false);*/
-
+  // print
+  TruthMatchGraphPrinter tm_printer("../dat/pdt.dat");
+  tm_printer.print(std::cout, tm.get_reco_graph(), tm.get_matching(), 
+                   tm.get_reco_idx_pm(), tm.get_reco_lund_id_pm());
 
   // close database connection
   psql.close_cursor();
