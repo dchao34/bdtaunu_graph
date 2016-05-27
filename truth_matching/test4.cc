@@ -68,8 +68,18 @@ int main() {
       { hmcidx, lmcidx, gammamcidx }
   );
 
+  auto pruned_mc_graph = tm.get_pruned_mc_graph();
+  auto pruned_mc_index_pm = tm.get_pruned_mc_idx_pm();
+  auto pruned_mc_lund_id_pm = tm.get_pruned_mc_lund_id_pm();
+
+  auto vtx_wtr = make_lund_id_writer(pruned_mc_lund_id_pm, "../dat/pdt.dat");
+  vtx_wtr.set_property("color", "blue");
+  print_graph(std::cout, pruned_mc_graph, 
+              pruned_mc_index_pm, 
+              vtx_wtr);
+
   // print 
-  ParticleGraphWriter writer("../dat/pdt.dat");
+ // ParticleGraphWriter writer("../dat/pdt.dat");
 
   /*auto mc_graph = tm.get_mc_graph();
   auto mc_index_pm = tm.get_mc_idx_pm();
@@ -77,10 +87,11 @@ int main() {
   writer.print(std::cout, mc_graph, mc_lund_id_pm, mc_index_pm);
   */
 
-  auto pruned_mc_graph = tm.get_pruned_mc_graph();
+/*  auto pruned_mc_graph = tm.get_pruned_mc_graph();
   auto pruned_mc_index_pm = tm.get_pruned_mc_idx_pm();
   auto pruned_mc_lund_id_pm = tm.get_pruned_mc_lund_id_pm();
   writer.print(std::cout, pruned_mc_graph, pruned_mc_lund_id_pm, pruned_mc_index_pm);
+  */
 
   /*auto reco_graph = tm.get_reco_graph();
   auto reco_index_pm = tm.get_reco_idx_pm();

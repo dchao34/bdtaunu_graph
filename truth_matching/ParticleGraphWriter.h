@@ -3,60 +3,129 @@
 
 #include <iostream>
 #include <vector>
+#include <unordered_map>
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graphviz.hpp>
 
 #include <ParticleTable.h>
 
-template <class LundIdPropertyMap>
-class particle_writer {
+// vertex or edge writer for arbitrary quantities 
+template <typename PropertyMapT>
+class BasicGraphWriter {
 
-public:
-  particle_writer(
-      LundIdPropertyMap lundpm, 
-      const std::string &fname, 
-      bool do_name_lookup=true) 
-    : lundpm_(lundpm), pdt_(fname), do_name_lookup_(do_name_lookup) {
-  }
+  public:
+    BasicGraphWriter(PropertyMapT pm) : pm_(pm) {}
 
-  template <class VertexOrEdge>
-    void operator()(std::ostream& out, const VertexOrEdge &v) const {
-      if (do_name_lookup_) {
-        out << "[label=\"" << pdt_.get(get(lundpm_, v)) << "\"]";
-      } else {
-        out << "[label=\"" << get(lundpm_, v) << "\"]";
-      }
+    void set_property(
+        const std::string &name, 
+        const std::string &value) {
+      properties_[name] = value; 
     }
 
-private:
-  LundIdPropertyMap lundpm_;
-  ParticleTable pdt_;
-  bool do_name_lookup_;
+    template <typename VertexOrEdgeT>
+      void operator()(std::ostream& out, const VertexOrEdgeT &v) const {
+        out << "[";
+        out << "label=\"" << get(pm_, v) << "\"";
+        std::string s;
+        for (const auto &p : properties_) {
+          s += ",";
+          s += p.first + "=";
+          s += "\"" + p.second + "\"";
+        }
+        out << s;
+        out << "]";
+      }
+
+  protected:
+    PropertyMapT pm_;
+    std::unordered_map<std::string, std::string> properties_;
+
 };
 
 
-class ParticleGraphWriter {
+// convenience function to create basic graph writer
+template <typename PropertyMapT>
+inline BasicGraphWriter<PropertyMapT> 
+make_basic_graph_writer(PropertyMapT pm) {
+  return BasicGraphWriter<PropertyMapT>(pm);
+}
+
+
+// special vertex writer for lund id
+template <typename LundIdPropertyMapT>
+class LundIdWriter {
+
   public:
-    ParticleGraphWriter(std::string pdt_fname) : pdt_fname_(pdt_fname) {}
+    LundIdWriter(LundIdPropertyMapT lund_pm, 
+                 const std::string &fname, 
+                 bool do_name_lookup = true) 
+      : lund_pm_(lund_pm), pdt_(fname), do_name_lookup_(do_name_lookup) {}
 
-    template <typename Graph, 
-              typename LundIdPropertyMap, 
-              typename VertexIndexPropertyMap>
-    void print(std::ostream &os, Graph g, 
-               LundIdPropertyMap lund_pm, 
-               VertexIndexPropertyMap index_pm, 
-               bool do_name_lookup=true) {
-
-      boost::write_graphviz(os, g, 
-        particle_writer<LundIdPropertyMap>(lund_pm, pdt_fname_, do_name_lookup),
-        boost::default_writer(), 
-        boost::default_writer(), 
-        index_pm);
+    void set_property(
+        const std::string &name, 
+        const std::string &value) {
+      properties_[name] = value; 
     }
+
+    template <typename VertexT>
+      void operator()(std::ostream& out, const VertexT &v) const {
+        out << "[";
+
+        if (do_name_lookup_) {
+          out << "label=\"" << pdt_.get(get(lund_pm_, v)) << "\"";
+        } else {
+          out << "label=\"" << get(lund_pm_, v) << "\"";
+        }
+
+        std::string s;
+        for (const auto &p : properties_) {
+          s += ",";
+          s += p.first + "=";
+          s += "\"" + p.second + "\"";
+        }
+
+        out << s;
+        out << "]";
+      }
 
   private:
-    std::string pdt_fname_;
+    LundIdPropertyMapT lund_pm_;
+    ParticleTable pdt_;
+    bool do_name_lookup_;
+
+    std::unordered_map<std::string, std::string> properties_;
 };
+
+
+// convenience function to create lund id writer
+template <typename LundIdPropertyMapT>
+inline LundIdWriter<LundIdPropertyMapT> 
+make_lund_id_writer(
+    LundIdPropertyMapT pm, 
+    const std::string &fname, 
+    bool do_name_lookup=true) {
+
+  return LundIdWriter<LundIdPropertyMapT>(pm, fname, do_name_lookup);
+
+}
+
+
+// print graph to output stream. 
+template <typename GraphT, 
+          typename VertexIndexPropertyMapT, 
+          typename VertexWriterT=boost::default_writer, 
+          typename EdgeWriterT=boost::default_writer, 
+          typename GraphWriterT=boost::default_writer> 
+void print_graph(
+    std::ostream &os, 
+    GraphT g, 
+    VertexIndexPropertyMapT index_pm, 
+    VertexWriterT v_wtr=VertexWriterT(), 
+    EdgeWriterT e_wtr=EdgeWriterT(), 
+    GraphWriterT g_wtr=GraphWriterT()) {
+  boost::write_graphviz(os, g, v_wtr, e_wtr, g_wtr, index_pm);
+}
+
 
 #endif
