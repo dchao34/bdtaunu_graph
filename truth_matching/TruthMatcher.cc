@@ -2,10 +2,55 @@
 #include <unordered_set>
 #include <cmath>
 #include <queue>
+#include <map>
+#include <iostream>
+
+#include <boost/property_map/property_map.hpp>
 
 #include "TruthMatcher.h"
 
-TruthMatcher::TruthMatcher() {}
+// decide if a lund id is considered a final state
+bool is_final_state(int lund_id) {
+  switch (abs(lund_id)) {
+    case 11:
+    case 13:
+    case 211:
+    case 321:
+    case 22:
+    case 2212:
+    case 2112:
+      return true;
+  }
+  return false;
+}
+
+
+// decide if a particle is considered undetectable for truth matching
+bool is_undetectable_particle(int lund_id) {
+  switch (abs(lund_id)) {
+    case 12:
+    case 14:
+    case 15:
+    case 16:
+    case 311:
+      return true;
+  }
+  return false;
+}
+
+// decide if a particle is a valid photon mother for the purpose
+// of truth matching. 
+bool is_acceptable_photon_mother(int lund_id) {
+  switch (abs(lund_id)) {
+    case 111:
+    case 413:
+    case 423:
+      return true;
+  }
+  return false;
+}
+
+TruthMatcher::TruthMatcher() { clear_cache(); }
 
 TruthMatcher::~TruthMatcher() {}
 
@@ -37,14 +82,20 @@ void TruthMatcher::set_graph(
       fs_reco_idx, fs_matched_idx
   );
 
+  compute_matching();
 
 }
 
 
 void TruthMatcher::clear_cache() {
+
   mc_graph_.clear();
   reco_graph_.clear();
+
   pruned_mc_graph_.clear();
+
+  matching_.clear();
+  pruned_mcidx2vtx_.clear();
 }
 
 
@@ -74,6 +125,14 @@ void TruthMatcher::construct_pruned_mc_graph() {
 
   // rip out particles that are not relevant for truth matching
   rip_irrelevant_particles(pruned_mc_graph_);
+
+  // populate the index to vertex mapping
+  pruned_mcidx2vtx_.clear();
+  VertexIter vi, vi_end;
+  for (std::tie(vi, vi_end) = vertices(pruned_mc_graph_); 
+       vi != vi_end; ++vi) {
+    pruned_mcidx2vtx_[pruned_mc_graph_[*vi].idx_] = *vi;
+  }
 
 }
 
@@ -141,37 +200,11 @@ void TruthMatcher::rip_irrelevant_particles(Graph &g) {
         }
       }
 
-      // clearn and remove the vertex
+      // clear and remove the vertex
       clear_vertex(*vi, g);
       remove_vertex(*vi, g);
     }
   }
-}
-
-
-// decide if a particle is considered undetectable for truth matching
-bool TruthMatcher::is_undetectable_particle(int lund_id) {
-  switch (abs(lund_id)) {
-    case 12:
-    case 14:
-    case 15:
-    case 16:
-    case 311:
-      return true;
-  }
-  return false;
-}
-
-// decide if a particle is a valid photon mother for the purpose
-// of truth matching. 
-bool TruthMatcher::is_acceptable_photon_mother(int lund_id) {
-  switch (abs(lund_id)) {
-    case 111:
-    case 413:
-    case 423:
-      return true;
-  }
-  return false;
 }
 
 
@@ -261,21 +294,6 @@ void TruthMatcher::label_for_removal(Vertex r, Graph &g, std::vector<Vertex> &to
 
     to_remove.push_back(u);
   }
-}
-
-// decide if a lund id is considered a final state
-bool TruthMatcher::is_final_state(int lund_id) {
-  switch (abs(lund_id)) {
-    case 11:
-    case 13:
-    case 211:
-    case 321:
-    case 22:
-    case 2212:
-    case 2112:
-      return true;
-  }
-  return false;
 }
 
 void TruthMatcher::construct_reco_graph(
@@ -412,3 +430,83 @@ void TruthMatcher::populate_reco_matched_idx(
   }
 
 }
+
+void TruthMatcher::compute_matching() {
+
+  // initialize empty matching: all -1
+  matching_ = std::vector<int>(num_vertices(reco_graph_), -1);
+
+  TruthMatchDfsVisitor vis(matching_, pruned_mcidx2vtx_, pruned_mc_graph_);
+
+  std::map<Vertex, boost::default_color_type> color_map;
+  boost::associative_property_map< std::map<Vertex, boost::default_color_type> >
+    color_pm(color_map);
+
+  VertexIter vi, vi_end;
+  for (std::tie(vi, vi_end) = vertices(reco_graph_); vi != vi_end; ++vi) {
+    color_map[*vi] = boost::white_color;
+  }
+
+  boost::depth_first_search(reco_graph_, visitor(vis).color_map(color_pm));
+}
+
+void TruthMatchDfsVisitor::finish_vertex(Vertex u, const Graph &reco_graph) {
+
+  if (is_final_state(reco_graph[u].lund_id_)) {
+    if (reco_graph[u].matched_idx_ >= 0 &&
+        mcidx2vtx_.find(reco_graph[u].matched_idx_) != mcidx2vtx_.end()) {
+      visitor_matching_[reco_graph[u].idx_] = reco_graph[u].matched_idx_;
+    }
+
+  } else {
+
+    // find matched daughters
+    std::vector<Vertex> daughter_matched_mcvtx;
+
+    OutEdgeIter oe, oe_end; 
+    for (std::tie(oe, oe_end) = out_edges(u, reco_graph); oe != oe_end; ++oe) {
+      Vertex v = target(*oe, reco_graph);
+      int daughter_matched_mc_index = visitor_matching_[reco_graph[v].idx_];
+      if (daughter_matched_mc_index < 0) { return; }
+
+      daughter_matched_mcvtx.push_back(mcidx2vtx_.at(daughter_matched_mc_index));
+    }
+
+    if (daughter_matched_mcvtx.size() <= 0) {
+      throw std::runtime_error(
+          "TruthMatchDfsVisitor::finish_vertex(): composite particle has no "
+          "daughters. "
+      );
+    }
+
+
+    // check for common mother
+    InEdgeIter ie, ie_end;
+    std::tie(ie, ie_end) = in_edges(*daughter_matched_mcvtx.begin(), mc_graph_);
+    if (ie == ie_end) { return; }
+
+    Vertex m = source(*ie, reco_graph);
+    for (auto it = daughter_matched_mcvtx.begin()+1; 
+         it != daughter_matched_mcvtx.end(); ++it) {
+      std::tie(ie, ie_end) = in_edges(*it, mc_graph_);
+      if (ie == ie_end) { return; }
+      if (source(*ie, reco_graph) != m) { return; }
+    }
+
+    // check for mother lund
+    if (mc_graph_[m].lund_id_ != reco_graph[u].lund_id_) { return; }
+
+    // check number of daughters
+    size_t n_mc_daughters = 0;
+    for (std::tie(oe, oe_end) = out_edges(m, mc_graph_); oe != oe_end; ++oe) {
+      n_mc_daughters++;
+    }
+    if (n_mc_daughters != daughter_matched_mcvtx.size()) { return; }
+
+    // matched
+    visitor_matching_[reco_graph[u].idx_] = mc_graph_[m].idx_;
+
+  }
+
+}
+

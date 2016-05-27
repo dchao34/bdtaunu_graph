@@ -4,7 +4,11 @@
 #include <vector>
 
 #include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/depth_first_search.hpp>
 
+bool is_final_state(int lund_id);
+bool is_undetectable_particle(int lund_id);
+bool is_acceptable_photon_mother(int lund_id);
 
 class TruthMatcher {
 
@@ -28,6 +32,7 @@ class TruthMatcher {
     using IntPropertyMap = boost::property_map<
       Graph, int VertexProperties::*>::type;
 
+
   public:
 
     TruthMatcher();
@@ -49,6 +54,8 @@ class TruthMatcher {
     Graph get_mc_graph() const;
     Graph get_pruned_mc_graph() const;
     Graph get_reco_graph() const;
+
+    const std::vector<int>& get_matching() const;
 
     // get property maps. 
     // prefer to have const... but need to think of a way. to fix!
@@ -93,16 +100,41 @@ class TruthMatcher {
     void remove_final_state_subtrees(Graph &g);
     void label_for_removal(Vertex, Graph&, std::vector<Vertex>&);
     void rip_irrelevant_particles(Graph &g);
-    bool is_final_state(int lund_id);
-    bool is_undetectable_particle(int lund_id);
-    bool is_acceptable_photon_mother(int lund_id);
+
+    void compute_matching();
 
   private:
     Graph mc_graph_;
     Graph reco_graph_;
 
     Graph pruned_mc_graph_;
+
+    std::vector<int> matching_;
+    std::unordered_map<int, Vertex> pruned_mcidx2vtx_;
                       
+};
+
+class TruthMatchDfsVisitor : public boost::default_dfs_visitor {
+
+  public:
+    using Graph = TruthMatcher::Graph;
+    using Vertex = TruthMatcher::Vertex;
+    using InEdgeIter = TruthMatcher::InEdgeIter;
+    using OutEdgeIter = TruthMatcher::OutEdgeIter;
+
+  public: 
+    TruthMatchDfsVisitor(std::vector<int> &matching, 
+        const std::unordered_map<int, Vertex> &mcidx2vtx, 
+        const Graph &mc_graph) : 
+        visitor_matching_(matching), mcidx2vtx_(mcidx2vtx), mc_graph_(mc_graph){}
+
+    void finish_vertex(Vertex u, const Graph &reco_graph);
+
+  private:
+    std::vector<int> &visitor_matching_;
+    const std::unordered_map<int, Vertex> &mcidx2vtx_;
+    const Graph &mc_graph_;
+
 };
 
 inline TruthMatcher::Graph 
@@ -143,5 +175,8 @@ inline TruthMatcher::IntPropertyMap TruthMatcher::get_reco_matched_idx_pm() {
   return get(&VertexProperties::matched_idx_, reco_graph_); 
 }
 
+inline const std::vector<int>& TruthMatcher::get_matching() const {
+  return matching_;
+}
 
 #endif
