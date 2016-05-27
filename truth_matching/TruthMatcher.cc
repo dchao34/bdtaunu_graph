@@ -50,7 +50,20 @@ bool is_acceptable_photon_mother(int lund_id) {
   return false;
 }
 
+// clear data structures
+void TruthMatcher::clear_cache() {
+
+  mc_graph_.clear();
+  reco_graph_.clear();
+
+  pruned_mc_graph_.clear();
+  pruned_mcidx2vtx_.clear();
+
+  matching_.clear();
+}
+
 TruthMatcher::TruthMatcher() { clear_cache(); }
+
 
 TruthMatcher::~TruthMatcher() {}
 
@@ -67,14 +80,17 @@ void TruthMatcher::set_graph(
     const std::vector<std::vector<int>> &fs_reco_idx,
     const std::vector<std::vector<int>> &fs_matched_idx) {
 
+  // clear all data structures 
   clear_cache();
 
+  // construct the mc graph as well as the pruned version 
   construct_mc_graph(
       mc_n_vertices, mc_n_edges,
       mc_from_vertices, mc_to_vertices,
       mc_lund_id
   );
 
+  // construct the reco graph
   construct_reco_graph(
       reco_n_vertices, reco_n_edges,
       reco_from_vertices, reco_to_vertices,
@@ -82,21 +98,12 @@ void TruthMatcher::set_graph(
       fs_reco_idx, fs_matched_idx
   );
 
+  // compute the matching
   compute_matching();
 
 }
 
 
-void TruthMatcher::clear_cache() {
-
-  mc_graph_.clear();
-  reco_graph_.clear();
-
-  pruned_mc_graph_.clear();
-
-  matching_.clear();
-  pruned_mcidx2vtx_.clear();
-}
 
 
 void TruthMatcher::construct_mc_graph(
@@ -105,16 +112,21 @@ void TruthMatcher::construct_mc_graph(
     const std::vector<int> &to_vertices, 
     const std::vector<int> &lund_id) {
 
+  // build the graph
   construct_graph(
       mc_graph_, n_vertices, n_edges, 
       from_vertices, to_vertices);
 
+  // attach internal properties
   populate_lund_id(mc_graph_, lund_id);
 
+  // construct a pruned version
   construct_pruned_mc_graph();
 
 }
 
+// the pruned mc graph is the target of graph matching. the un-pruned
+// mc graph has too many artifacts and spurious particles
 void TruthMatcher::construct_pruned_mc_graph() {
 
   // start with a copy of the original mc_graph 
@@ -126,7 +138,8 @@ void TruthMatcher::construct_pruned_mc_graph() {
   // rip out particles that are not relevant for truth matching
   rip_irrelevant_particles(pruned_mc_graph_);
 
-  // populate the index to vertex mapping
+  // populate the index to vertex mapping. needed later 
+  // for computing the matching
   pruned_mcidx2vtx_.clear();
   VertexIter vi, vi_end;
   for (std::tie(vi, vi_end) = vertices(pruned_mc_graph_); 
@@ -304,12 +317,17 @@ void TruthMatcher::construct_reco_graph(
     const std::vector<std::vector<int>> &fs_reco_idx,
     const std::vector<std::vector<int>> &fs_matched_idx) {
 
+  // build the graph itself
   construct_graph(
       reco_graph_, n_vertices, n_edges, 
       from_vertices, to_vertices);
 
+  // attach internal properties: lund id
   populate_lund_id(reco_graph_, lund_id);
 
+  // attach internal properties: final state matched index. 
+  // note that these are the matched indices given from babar. they are, 
+  // after slight modifications, used as the base case of our dfs_visitor.
   populate_reco_matched_idx(reco_graph_, n_vertices, 
       fs_reco_idx, fs_matched_idx);
 
@@ -415,7 +433,8 @@ void TruthMatcher::populate_reco_matched_idx(
     );
   }
 
-  // determine values for every reco index
+  // determine values for every reco index. note that 
+  // composite particles get -1. 
   std::vector<int> matched_idx(n_vertices, -1);
   for (size_t i = 0; i < concat_fs_reco_idx.size(); ++i) {
     if (concat_fs_matched_idx[i] >= 0) { 
@@ -433,43 +452,67 @@ void TruthMatcher::populate_reco_matched_idx(
 
 void TruthMatcher::compute_matching() {
 
-  // initialize empty matching: all -1
+  // initialize result to the empty matching; i.e. all -1. 
   matching_ = std::vector<int>(num_vertices(reco_graph_), -1);
 
-  TruthMatchDfsVisitor vis(matching_, pruned_mcidx2vtx_, pruned_mc_graph_);
-
+  // create color map for dfs
   std::map<Vertex, boost::default_color_type> color_map;
-  boost::associative_property_map< std::map<Vertex, boost::default_color_type> >
-    color_pm(color_map);
+  boost::associative_property_map< 
+    std::map<Vertex, boost::default_color_type> > color_pm(color_map);
 
   VertexIter vi, vi_end;
   for (std::tie(vi, vi_end) = vertices(reco_graph_); vi != vi_end; ++vi) {
     color_map[*vi] = boost::white_color;
   }
 
+  // create visitor
+  TruthMatchDfsVisitor vis(matching_, pruned_mc_graph_, pruned_mcidx2vtx_);
+
+  // compute matching by dfs
   boost::depth_first_search(reco_graph_, visitor(vis).color_map(color_pm));
 }
 
-void TruthMatchDfsVisitor::finish_vertex(Vertex u, const Graph &reco_graph) {
 
+void TruthMatchDfsVisitor::finish_vertex(
+    Vertex u, const Graph &reco_graph) {
+
+  // for final states, just lookup the answer stored at the node. 
+  //
+  // be careful though: while it is true that a non-negative matched index 
+  // indicates a match to the mc graph, it need not be a match in 
+  // the pruned mc graph. 
   if (is_final_state(reco_graph[u].lund_id_)) {
     if (reco_graph[u].matched_idx_ >= 0 &&
         mcidx2vtx_.find(reco_graph[u].matched_idx_) != mcidx2vtx_.end()) {
-      visitor_matching_[reco_graph[u].idx_] = reco_graph[u].matched_idx_;
+      matching_[reco_graph[u].idx_] = reco_graph[u].matched_idx_;
     }
 
+
+  // for composite states, it can match only to the common mother of all the 
+  // particles that its daughters match to. this amounts to the following 
+  // criteria:
+  // 1. all daughters must match to some particle in the (pruned) mc graph
+  // 2. all matched daughters in the mc graph must share the same mother. 
+  // 3. that mother must have the same lund id as the composite particle
+  // 4. that mother must have the same number of daughter as the composite. 
   } else {
 
-    // find matched daughters
+    // 1. check that all daughters match to a particle in the mc graph.
+    // put the matched mc particles daughter_matched_mcvtx
     std::vector<Vertex> daughter_matched_mcvtx;
 
     OutEdgeIter oe, oe_end; 
-    for (std::tie(oe, oe_end) = out_edges(u, reco_graph); oe != oe_end; ++oe) {
+    for (std::tie(oe, oe_end) = out_edges(u, reco_graph); 
+        oe != oe_end; ++oe) {
+
       Vertex v = target(*oe, reco_graph);
-      int daughter_matched_mc_index = visitor_matching_[reco_graph[v].idx_];
+      int daughter_matched_mc_index = matching_[reco_graph[v].idx_];
+
+      // fail if any daughters don't match
       if (daughter_matched_mc_index < 0) { return; }
 
-      daughter_matched_mcvtx.push_back(mcidx2vtx_.at(daughter_matched_mc_index));
+      daughter_matched_mcvtx.push_back(
+          mcidx2vtx_.at(daughter_matched_mc_index));
     }
 
     if (daughter_matched_mcvtx.size() <= 0) {
@@ -480,31 +523,44 @@ void TruthMatchDfsVisitor::finish_vertex(Vertex u, const Graph &reco_graph) {
     }
 
 
-    // check for common mother
+    // 2. check that all matched mc daughters have a common mother
+    // cache the result of the first daughter, and compare all others
+    // against it. 
+
+    // cache the mother `m` of the first matched daughter. fail if no 
+    // mothers exist. `m` is the common mother if it exists. 
     InEdgeIter ie, ie_end;
-    std::tie(ie, ie_end) = in_edges(*daughter_matched_mcvtx.begin(), mc_graph_);
+    std::tie(ie, ie_end) = in_edges(
+        *daughter_matched_mcvtx.begin(), mc_graph_);
     if (ie == ie_end) { return; }
 
     Vertex m = source(*ie, reco_graph);
     for (auto it = daughter_matched_mcvtx.begin()+1; 
          it != daughter_matched_mcvtx.end(); ++it) {
       std::tie(ie, ie_end) = in_edges(*it, mc_graph_);
+
+      // fail if no mother or if it does not agree with the mother 
+      // of the first daughter
       if (ie == ie_end) { return; }
       if (source(*ie, reco_graph) != m) { return; }
     }
 
-    // check for mother lund
+    // 3. check for mother lund. fail if it does not agree with the 
+    // lund id of the composite reco particle 
     if (mc_graph_[m].lund_id_ != reco_graph[u].lund_id_) { return; }
 
-    // check number of daughters
+    // 4. check the number of daughters descending from the common mother
     size_t n_mc_daughters = 0;
     for (std::tie(oe, oe_end) = out_edges(m, mc_graph_); oe != oe_end; ++oe) {
       n_mc_daughters++;
     }
+
+    // fail if it does not have the same number of daughters
+    // as the composite particle
     if (n_mc_daughters != daughter_matched_mcvtx.size()) { return; }
 
-    // matched
-    visitor_matching_[reco_graph[u].idx_] = mc_graph_[m].idx_;
+    // success. cache the result
+    matching_[reco_graph[u].idx_] = mc_graph_[m].idx_;
 
   }
 
