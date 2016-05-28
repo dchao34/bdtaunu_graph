@@ -20,7 +20,7 @@ RecoIndexer::RecoIndexer(
   }
 
   // cache order depends on the order of the block_names argument. 
-  for (int i = 0; i < block_names.size(); ++i) { 
+  for (size_t i = 0; i < block_names.size(); ++i) { 
     name2blockidx_[block_names[i]] = i;
   }
 }
@@ -37,7 +37,7 @@ void RecoIndexer::set_block_sizes(const std::vector<int> &block_sizes) {
 
   // update starting indices
   start_index_[0] = 0;
-  for (int i = 1; i < block_sizes.size(); ++i) {
+  for (size_t i = 1; i < block_sizes.size(); ++i) {
     start_index_[i] = start_index_[i-1] + block_size_[i-1];
   }
 
@@ -54,7 +54,7 @@ int RecoIndexer::global_index(const std::string &block_name, int idx) const {
 }
 
 bool RecoIndexer::has_full_block() const {
-  for (int i = 0; i < block_size_.size(); ++i) {
+  for (size_t i = 0; i < block_size_.size(); ++i) {
     if (block_size_[i] >= max_block_size_[i]) { return true; }
   }
   return false;

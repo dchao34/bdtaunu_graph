@@ -25,7 +25,7 @@ void RecoEdgeAssociator::associate_edges(
   }
   curr_mothers_ = n_mothers;
 
-  if (mother_lund.size() != curr_mothers_) { 
+  if (mother_lund.size() != static_cast<unsigned>(curr_mothers_)) { 
     throw std::length_error(
         "RecoEdgeAssociator::associate_edges(): "
         "mother_lund.size() not equal to n_mothers. ");
@@ -33,17 +33,17 @@ void RecoEdgeAssociator::associate_edges(
   mother_lund_ = mother_lund;
 
   // setup daughter adjacency structure 
-  if (ndaus_list.size() != curr_mothers_) { 
+  if (ndaus_list.size() != static_cast<unsigned>(curr_mothers_)) { 
     throw std::length_error(
         "RecoEdgeAssociator::associate_edges(): "
         "ndaus_list.size() not equal to n_mothers. ");
   }
-  if (daulund_list.size() != max_daughters_) { 
+  if (daulund_list.size() != static_cast<unsigned>(max_daughters_)) { 
     throw std::length_error(
         "RecoEdgeAssociator::associate_edges(): "
         "daulund_list.size() not equal to max_daughters. ");
   }
-  if (dauidx_list.size() != max_daughters_) { 
+  if (dauidx_list.size() != static_cast<unsigned>(max_daughters_)) { 
     throw std::length_error(
         "RecoEdgeAssociator::associate_edges(): "
         "daulund_list.size() not equal to max_daughters. ");
@@ -52,8 +52,8 @@ void RecoEdgeAssociator::associate_edges(
   // consider checking for daulund_list and dauidx_list consistency?
   daulund_adjacency_ = std::vector<std::vector<int>>(curr_mothers_);
   dauidx_adjacency_ = std::vector<std::vector<int>>(curr_mothers_);
-  for (size_t i = 0; i < curr_mothers_; ++i) {
-    for (size_t j = 0; j < ndaus_list[i]; ++j) {
+  for (int i = 0; i < curr_mothers_; ++i) {
+    for (int j = 0; j < ndaus_list[i]; ++j) {
       daulund_adjacency_[i].push_back(daulund_list[j][i]);
       dauidx_adjacency_[i].push_back(dauidx_list[j][i]);
     }

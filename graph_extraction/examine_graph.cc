@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
   // read the csv file
   CsvReader<> csv(fname); 
   bool valid_record = true;
-  for (int i = 0; i <= row_index && (valid_record=csv.next()); ++i) ;
+  for (size_t i = 0; i <= row_index && (valid_record=csv.next()); ++i) ;
 
   if (!valid_record) { 
     std::cerr << "file does not contain at least ";
