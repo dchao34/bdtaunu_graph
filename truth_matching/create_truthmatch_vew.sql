@@ -13,7 +13,8 @@ SELECT
   recograph.lund_id AS reco_lund_id,
   h_reco_idx,
   l_reco_idx,
-  gamma_reco_idx
+  gamma_reco_idx,
+  y_reco_idx
 FROM 
   mcgraph INNER JOIN recograph using (eid);
 
@@ -35,7 +36,8 @@ SELECT
   gamma_reco_idx,
   hmcidx,
   lmcidx,
-  gammamcidx
+  gammamcidx, 
+  y_reco_idx
 FROM 
   framework_ntuples INNER JOIN mcreco using (eid);
 

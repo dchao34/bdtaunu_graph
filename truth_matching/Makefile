@@ -1,4 +1,4 @@
-BINARIES = examine_truth_match
+BINARIES = extract_truth_match examine_truth_match
 OBJECTS = TruthMatcher.o
 
 UTILS_ROOT = ../utils
@@ -28,6 +28,9 @@ DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.Td
 POSTCOMPILE = @mv -f $(DEPDIR)/$*.Td $(DEPDIR)/$*.d
 
 all : $(BINARIES)
+
+extract_truth_match : $(addprefix $(BUILDDIR)/, extract_truth_match.o $(OBJECTS))
+	$(CXX) $(LDFLAGS) $^ -o $@
 
 examine_truth_match : $(addprefix $(BUILDDIR)/, examine_truth_match.o $(OBJECTS))
 	$(CXX) $(LDFLAGS) $^ -o $@
