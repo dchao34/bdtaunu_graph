@@ -26,6 +26,8 @@ int main(int argc, char **argv) {
 
     po::options_description config("Configuration options");
     config.add_options()
+        ("record_idx", po::value<int>()->default_value(0), 
+             "record number to examine. 0 indexed. ")
         ("dbname", po::value<std::string>(), 
              "database name containing the truth match information. ")
         ("table_name", po::value<std::string>(), 
@@ -127,7 +129,15 @@ void compute_truth_match(const po::variables_map &vm) {
   std::vector<int> l_reco_idx, lmcidx;
   std::vector<int> gamma_reco_idx, gammamcidx;
 
-  psql.next();
+  int record_idx = vm["record_idx"].as<int>();
+  bool valid_record = true;
+  for (int i = 0; i <= record_idx && (valid_record=psql.next()); ++i) ;
+
+  if (!valid_record) {
+    std::string s = "database table does not contain at least ";
+    s += std::to_string(record_idx+1) + " records. ";
+    throw std::runtime_error(s);
+  }
 
   pgstring_convert(psql.get("eid"), eid);
   pgstring_convert(psql.get("mc_n_vertices"), mc_n_vertices);
