@@ -54,4 +54,6 @@ SELECT
 FROM 
   mcgraph AS m INNER JOIN recograph AS r USING (eid);
 
+CREATE INDEX ON graph (eid);
+
 COMMIT;
