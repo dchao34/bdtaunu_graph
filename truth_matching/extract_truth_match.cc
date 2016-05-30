@@ -187,7 +187,7 @@ void extract_truth_match(const po::variables_map &vm) {
     // get y matched status and set indicator
     int exist_matched_y = 0;
     std::vector<int> y_match_status(y_reco_idx.size(), -1);
-    for (int i = 0; i < y_reco_idx.size(); ++i) {
+    for (size_t i = 0; i < y_reco_idx.size(); ++i) {
       if (matching[y_reco_idx[i]] >= 0) {
         y_match_status[i] = 1;
         exist_matched_y = 1;

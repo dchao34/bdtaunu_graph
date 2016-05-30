@@ -341,7 +341,7 @@ void TruthMatcher::construct_graph(
     const std::vector<int> &to_vertices) {
 
   // check for argument consistency
-  if (from_vertices.size() != n_edges) {
+  if (from_vertices.size() != static_cast<unsigned>(n_edges)) {
     throw std::invalid_argument(
         "TruthMatcher::construct_graph(): n_vertices and " 
         "from_vertices.size() must agree. "
@@ -426,7 +426,7 @@ void TruthMatcher::populate_reco_matched_idx(
   // populating matched indices of the entire reco graph
   // ---------------------------------------------------
 
-  if (n_vertices != num_vertices(g)) {
+  if (static_cast<unsigned>(n_vertices) != num_vertices(g)) {
     throw std::runtime_error(
         "TruthMatcher::populate_matched_idx(): n_vertices "
         "must agree with num_vertices(g). "
