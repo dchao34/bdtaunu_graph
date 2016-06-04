@@ -5,7 +5,7 @@ import time
 dbname = 'bdtaunuhad_lite'
 
 job_suffixes = [ 
-    #'sp1235', 
+    'sp1235', 
     'sp1237', 
     'sp1005', 
     'sp998', 
