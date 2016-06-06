@@ -13,4 +13,6 @@ CREATE TABLE truth_match_sp998 (
 
 DROP MATERIALIZED VIEW truth_match_input_sp998;
 
+CREATE INDEX ON truth_match_sp998 (eid);
+
 COMMIT;

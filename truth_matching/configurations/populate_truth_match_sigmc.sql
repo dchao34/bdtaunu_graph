@@ -13,4 +13,6 @@ CREATE TABLE truth_match_sigmc (
 
 DROP MATERIALIZED VIEW truth_match_input_sigmc;
 
+CREATE INDEX ON truth_match_sigmc (eid);
+
 COMMIT;
